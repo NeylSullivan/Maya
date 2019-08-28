@@ -473,9 +473,6 @@ def RenameNewSkeleton():
         print newName
         rename(j, newName)
 
-#tempList = cmds.ls('DAZ_*', type="joint")
-#cmds.delete(tempList)
-    
 DestroyMiddleJoint ('lMetatarsals')
 DestroyMiddleJoint ('rMetatarsals')
 DestroyMiddleJoint ('pelvis')
@@ -509,8 +506,8 @@ for mesh in meshes:
 oldRoot = cmds.ls('Root', type="joint")
 oldJoints = cmds.listRelatives( oldRoot, allDescendents=True)
 oldJoints.append(oldRoot[0])
-skinList = cmds.ls(type='skinCluster')
 
+skinList = cmds.ls(type='skinCluster')
 print 'Resetting bind pose'
 meshes = set(sum([cmds.skinCluster(c, q=1, g=1) for c in skinList], []))
 for mesh in meshes:
@@ -520,49 +517,49 @@ for mesh in meshes:
 print 'Resetting bind pose: Done'
 
 
-for oldJoint in oldJoints:
-    newJoint = "DAZ_" + oldJoint
-    if not cmds.objExists(newJoint):
-        print "ERROR corresponding joint {0} not exist".format(newJoint)
-        continue
-        
-    for skinClusterName in skinList:
-        cmds.select(clear=True)
-        
-        print 'TransferJointWeights: Processing ' + skinClusterName
-        influences = cmds.skinCluster( skinClusterName, query=True, influence=True)
-        if oldJoint not in influences:
-            print 'TransferJointWeights: ' + skinClusterName + ' is NOT influenced by SOURCE joint ' + oldJoint + ' Skipping...'
-            continue
-        else:
-            print 'TransferJointWeights: ' + skinClusterName + ' is influenced by joint ' + oldJoint + ' Processing...'
+#collect data for skin export
+skinData = [] # transform, shape, skincluster, jointsList
 
-        if newJoint not in influences:
-            cmds.skinCluster( skinClusterName, e=True, addInfluence=newJoint, weight = 0.0)
-        
+cmds.select(clear=True)
+skinList = cmds.ls(type='skinCluster')
+meshes = set(sum([cmds.skinCluster(c, q=1, g=1) for c in skinList], []))
+#print meshes
+for mesh in meshes:
+    transformList = cmds.listRelatives(mesh, parent=True)
+    #print transformList
+    for tf in transformList:
+        shapes = cmds.listRelatives(tf, shapes=True)
+        for shape in shapes:
+            history = cmds.listHistory(shape, groupLevels=True, pruneDagObjects=True)
+            skins = cmds.ls(history, type='skinCluster')
+            #print skins
+            for skin in skins:
+                joints = cmds.skinCluster(skin, query=True, influence=True)
+                skinData.append( [tf, shape, skin, joints] )
+                #print joints
 
-        cmds.skinCluster( skinClusterName, e=True, selectInfluenceVerts=oldJoint)
-        sel = cmds.ls( selection=True, flatten=True )
-        onlyVertices = cmds.filterExpand(sel, sm=31)
-        
-        if onlyVertices is None:
-            print 'TransferJointWeights: No binded vertices. Skipping...'
-        else:
-            for v in onlyVertices:
-                oldJointWeight = cmds.skinPercent( skinClusterName, v, transform=oldJoint, query=True)
-                newJointWeight = cmds.skinPercent( skinClusterName, v, transform=newJoint, query=True)
-                finalNewJointWeight = min(1.0, newJointWeight + oldJointWeight)
-                cmds.skinPercent(skinClusterName, v, transformValue=[(oldJoint, 0), (newJoint, finalNewJointWeight)])
-            
-        print 'TransferJointWeights: Removing {0} from influences of {1}'.format(oldJoint, skinClusterName)
-        cmds.skinCluster( skinClusterName, e=True, removeInfluence=oldJoint)
+#export skinning
+for sd in skinData:
+    print sd
+    fileName = sd[0] + '_WEIGHTS.xml'
+    cmds.deformerWeights (fileName, ex=True, deformer=sd[2])
 
-print 'TransferJointWeights: Done'
-print 'Deleting old skeleton'
+oldRoot = cmds.ls('Root', type="joint")
+oldJoints = cmds.listRelatives( oldRoot, allDescendents=True)
+oldJoints.append(oldRoot[0])
 cmds.delete(oldJoints)
 
-
 RenameNewSkeleton()
+
+#import skinning
+for sd in skinData:
+    #print sd
+    cmds.skinCluster(sd[3], sd[0], name=sd[2], tsb=True)
+    fileName = sd[0] + '_WEIGHTS.xml'
+    cmds.deformerWeights (fileName, im=True, deformer=sd[2], method='index')
+
+    
+cmds.select(clear=True)
 
 AddEndJoints()
 AddCameraJoint()
