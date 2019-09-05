@@ -198,7 +198,7 @@ def rotate (jointName, x=0, y=0, z=0):
         cmds.select( jointName )
         cmds.rotate( x, y, z, relative=True, objectSpace=True)
     except Exception:
-        print('Это что ещё такое?')
+        print('пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ?')
 
 def rename (oldName, newName):
     try:
@@ -316,13 +316,13 @@ def DuplicateSkeletonJoints():
 
     for j in jointsList:
         pos = cmds.joint(j, q=True, absolute=True)
-        oldName = cmds.joint(j, q=True, name=True)
+        #oldName = cmds.joint(j, q=True, name=True)
         oldOrientation = cmds.joint(j, q=True, orientation=True)
 
-        newName = "DAZ_" + oldName
+        #newName = "DAZ_" + oldName
         
         cmds.select(clear=True) 
-        newJoint = cmds.joint(p=pos, name=newName)
+        #newJoint = cmds.joint(p=pos, name=newName)
         cmds.xform( r=True, ro=oldOrientation )
 
         

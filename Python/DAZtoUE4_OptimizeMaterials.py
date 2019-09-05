@@ -10,9 +10,9 @@ def OptimizeBodyMaterials():
     start = time.clock()
 
     shape = FindShapeByMat('Torso')
-    
+        
     if shape is None:
-        print 'Error! Can`nt find body(Torso) shape'
+        print 'Error! Can`t find body(Torso) shape'
         return
 
     AppendShadingGroupByMat(shape, 'Mouth','Teeth')    
