@@ -1,4 +1,5 @@
 import maya.cmds as cmds
+import time
 
 from libHazardMayaFunctions import *
 import libHazardMayaFunctions
@@ -363,12 +364,21 @@ def ParentAllGeometryToWorld():
         for tf in transformList:
             if cmds.listRelatives(tf, parent=True):
                 cmds.parent(tf, world=True)
+
+
+
+def FixMaxInfluences():
+    FixMaxInfluencesForAllSkinClusters(4)
+
 #
 #
 #   MAIN
 #
 #
 def OptymizeSkeleton():
+    print 'Starting skeleton and mesh optimization'
+    start = time.clock()
+
     DestroyMiddleJoint('lMetatarsals')
     DestroyMiddleJoint('rMetatarsals')
     DestroyMiddleJoint('pelvis')
@@ -377,62 +387,28 @@ def OptymizeSkeleton():
 
     ParentAllGeometryToWorld()
 
-    # set skinning type to linear
-    skinList = cmds.ls(type='skinCluster')
-    for s in skinList:
-        cmds.skinCluster(s, e=True, skinMethod=0)
+    ResetBindPoseForAllSkinClusters()
+
+    SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
 
     RenameSkeletonJoints()
 
-    DuplicateSkeletonJoints('Root', 'DAZ_')
-
-    FixNewJointsOrientation()
-
-    RecreateHierarchy('Root', 'DAZ_')
-
     oldJoints = GetHierarchy('Root')
 
-    skinList = cmds.ls(type='skinCluster')
-    print 'Resetting bind pose'
-    meshes = set(sum([cmds.skinCluster(c, q=1, g=1) for c in skinList], []))
-    for mesh in meshes:
-        transformList = cmds.listRelatives(mesh, parent=True)
-        ResetBindPose(transformList)
-    print 'Resetting bind pose: Done'
-
-    #return
-
     # collect data for skin export
-    skinData = []  # transform, shape, skincluster, jointsList
-
-    cmds.select(clear=True)
-    skinList = cmds.ls(type='skinCluster')
-    meshes = set(sum([cmds.skinCluster(c, q=1, g=1) for c in skinList], []))
-    #print meshes
-    for mesh in meshes:
-        transformList = cmds.listRelatives(mesh, parent=True)
-        #print transformList
-        for tf in transformList:
-            shapes = cmds.listRelatives(tf, shapes=True)
-            for shape in shapes:
-                history = cmds.listHistory(
-                    shape, groupLevels=True, pruneDagObjects=True)
-                skins = cmds.ls(history, type='skinCluster')
-                #print skins
-                for skin in skins:
-                    joints = cmds.skinCluster(skin, query=True, influence=True)
-                    skinData.append([tf, shape, skin, joints])
-                    #print joints
+    skinData = GetSkinExportData()  # transform, shape, skincluster, jointsList
 
     # export skinning
     for sd in skinData:
-        print sd
+        #print sd
         fileName = sd[0] + '_WEIGHTS.xml'
         cmds.deformerWeights(fileName, ex=True, deformer=sd[2])
 
-    oldRoot = cmds.ls('Root', type="joint")
-    oldJoints = cmds.listRelatives(oldRoot, allDescendents=True)
-    oldJoints.append(oldRoot[0])
+    DuplicateSkeletonJoints('Root', 'DAZ_')
+    FixNewJointsOrientation()
+    RecreateHierarchy('Root', 'DAZ_')
+
+
     cmds.delete(oldJoints)
 
     RenameNewSkeleton()
@@ -443,7 +419,6 @@ def OptymizeSkeleton():
         cmds.skinCluster(sd[3], sd[0], name=sd[2], tsb=True)
         fileName = sd[0] + '_WEIGHTS.xml'
         cmds.deformerWeights(fileName, im=True, deformer=sd[2], method='index')
-
 
     cmds.select(clear=True)
 
@@ -460,4 +435,4 @@ def OptymizeSkeleton():
     CreateIkJoint('Hand_R', 'IK_Weapon_Root', 'IK_Hand_R')
     CreateIkJoint('Hand_L', 'IK_Weapon_Root', 'IK_Hand_L')
 
-    print 'All tasks DONE'
+    print 'FINISHED skeleton and mesh optimization: time taken %.02f seconds' % (time.clock()-start)

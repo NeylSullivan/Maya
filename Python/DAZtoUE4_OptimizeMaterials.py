@@ -5,7 +5,6 @@ from libHazardMayaFunctions import *
 import libHazardMayaFunctions
 reload(libHazardMayaFunctions)
 
-
 def OptimizeBodyMaterials():
     print 'Starting body materials optimization'
     start = time.clock()
@@ -38,10 +37,11 @@ def OptimizeBodyMaterials():
     AppendShadingGroupByMat(shape, 'Torso', 'Arms')
     AppendShadingGroupByMat(shape, 'Torso', 'Face')
 
+    RenameMaterial('Torso', 'Body')
+
     print 'Baking history'
     cmds.bakePartialHistory(shape, prePostDeformers=True)
     cmds.bakePartialHistory(mouthShape, prePostDeformers=True)
     cmds.bakePartialHistory(eyesShape, prePostDeformers=True)
 
-    print 'Finished body materials optimization: time taken %.02f seconds' % (
-        time.clock()-start)
+    print 'Finished body materials optimization: time taken %.02f seconds' % (time.clock()-start)
