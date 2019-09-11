@@ -5,6 +5,8 @@ from libHazardMayaFunctions import *
 import libHazardMayaFunctions
 reload(libHazardMayaFunctions)
 
+import libHazardMathUtils as math
+reload(math)
 
 def RenameSkeletonJoints():
     print 'Renaming skeleton joints'
@@ -190,7 +192,7 @@ def DuplicateSkeletonJoints(oldSkeletonRoot, newJointsPrefix):
     print 'Duplicating skeleton'
 
     jointsList = GetHierarchy(oldSkeletonRoot)
-    print jointsList
+    #print jointsList
 
     for j in jointsList:
         pos = cmds.joint(j, q=True, absolute=True)
@@ -351,7 +353,6 @@ def RenameNewSkeleton():
 
     for j in newJoints:
         newName = j[4:]
-        print newName
         RenameJoint(j, newName)
 
 def ParentAllGeometryToWorld():
@@ -365,10 +366,73 @@ def ParentAllGeometryToWorld():
             if cmds.listRelatives(tf, parent=True):
                 cmds.parent(tf, world=True)
 
+def remap(x, in_min, in_max, out_min, out_max):
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+def GenerateBendCorrectiveBones():
+    newJoint = 'Knee_L_BCB'
+    maxNewJointRatio = 1.0
+    #CreateIkJoint('Leg_L', 'UpLegTwist_L', newJoint)
+    skinClusterName = 'skinCluster1'
+    mesh = GetMeshFromSkinCluster(skinClusterName)
+    srcJoints = ['Leg_L', 'UpLegTwist_L']
+
+    cmds.select(clear=True)
+    influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
+    #intersectedVerts = set(cmds.filterExpand(cmds.polyListComponentConversion(mesh, toVertex=True), sm=31, expand=True))
+    #print intersectedVerts
+
+    cmds.skinCluster(skinClusterName, e=True, selectInfluenceVerts=srcJoints[0])
+    sel = cmds.ls(selection=True, flatten=True)
+    onlyVertices = cmds.filterExpand(sel, sm=31, expand=True)
+    intersectedVerts = []
+
+    prune_value = 0.001
+
+    for v in onlyVertices:
+        if cmds.skinPercent(skinClusterName, v, transform=srcJoints[0], query=True) > prune_value:
+            if cmds.skinPercent(skinClusterName, v, transform=srcJoints[1], query=True) > prune_value:
+                intersectedVerts.append(v)
+    #cmds.select(intersectedVerts)
+
+    intersectedVertsList = list(intersectedVerts)
+    #cmds.select(intersectedVertsList)
+    cmds.skinCluster(skinClusterName, e=True, addInfluence=newJoint, weight=0.0)
+    cmds.select(clear=True)
+    for v in intersectedVertsList:
+        sumNewWeight = 0
+        transformValueList = []
+        oldWeights = []
+
+        for j in srcJoints:
+            w = cmds.skinPercent(skinClusterName, v, transform=j, query=True)
+            print 'skinPercent Vert: {0} j:{1} w:{2}'.format(v, j, w)
+            oldWeights.append(w)
+
+        totalWeight = oldWeights[0] + oldWeights[1]
+        weightsDifference = abs(oldWeights[0] - oldWeights[1])
+        print oldWeights
+        print totalWeight
+        #1 when weights same
+        bendJointTransferAlpha = math.MapRangeClamped(weightsDifference, totalWeight, 0.0, 0.0, 1.0)
+        #bendJointTransferAlpha = 1.0
+
+        for i in range(0, 2):
+            '''if oldWeights[i] < (totalWeight * 0.5):
+                newWeight = 0
+                sumNewWeight+=oldWeights[i]
+            else:
+                newWeight = oldWeights[i]'''
+            newWeight = oldWeights[i] * (1.0 - bendJointTransferAlpha)
+            sumNewWeight+=newWeight
+            transformValueList.append([srcJoints[i], newWeight])
 
 
-def FixMaxInfluences():
-    FixMaxInfluencesForAllSkinClusters(4)
+        transformValueList.append([newJoint, min(totalWeight, max(0.0, totalWeight - sumNewWeight))])
+        print 'Vert: {0} value:{1}'.format(v, sumNewWeight)
+        cmds.skinPercent(skinClusterName, v, transformValue=transformValueList)
+
+    cmds.select(intersectedVertsList)
 
 #
 #
@@ -378,6 +442,8 @@ def FixMaxInfluences():
 def OptymizeSkeleton():
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
+
+    FixMaxInfluencesForAllSkinClusters(4)
 
     DestroyMiddleJoint('lMetatarsals')
     DestroyMiddleJoint('rMetatarsals')
@@ -424,6 +490,8 @@ def OptymizeSkeleton():
 
     AddEndJoints()
     AddCameraJoint()
+
+    #FixMaxInfluencesForAllSkinClusters(4)
 
     CreateIkJoint('FK_CAMERA_SOCKET', 'Root', 'IK_CAMERA')
     CreateIkJoint('Root', 'Root', 'IK_Foot_Root')

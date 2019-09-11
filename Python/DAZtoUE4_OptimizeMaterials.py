@@ -44,4 +44,6 @@ def OptimizeBodyMaterials():
     cmds.bakePartialHistory(mouthShape, prePostDeformers=True)
     cmds.bakePartialHistory(eyesShape, prePostDeformers=True)
 
+    CleanUnusedInfluensesOnAllSkinClusters()
+
     print 'Finished body materials optimization: time taken %.02f seconds' % (time.clock()-start)

@@ -73,6 +73,10 @@ def ResetBindPoseForAllSkinClusters():
         ResetBindPose(transformList)
     print 'Resetting bind pose: Done'
 
+def GetMeshFromSkinCluster(skinClusterName):
+    shape = cmds.skinCluster(skinClusterName, q=True, geometry=True)[0]
+    mesh = cmds.listRelatives(shape, parent=True)[0]
+    return mesh
 
 def GetHierarchy(rootJoint):
     root = cmds.ls(rootJoint, type="joint")
@@ -124,7 +128,7 @@ def FixMaxInfluencesForAllSkinClusters(maxInfluences):
     print 'Finished FixMaxInfluencesForAllSkinClusters: time taken %.02f seconds' % (time.clock()-start)
 
 def FixMaxInfluencesForSkinCluster(skinClusterName, maxInfluences):
-    k_EPSILON = 0.0001
+    k_EPSILON = 0.001
 
     shape = cmds.skinCluster(skinClusterName, q=True, geometry=True)[0]
     mesh = cmds.listRelatives(shape, parent=True)[0]
@@ -159,8 +163,7 @@ def TransferJointWeights(oldJointName, newJointName):
     for skinClusterName in skinList:
         cmds.select(clear=True)
         print 'TransferJointWeights: Processing ' + skinClusterName
-        influences = cmds.skinCluster(
-            skinClusterName, query=True, influence=True)
+        influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
         if oldJointName not in influences:
             print 'TransferJointWeights: ' + skinClusterName + ' is NOT influenced by SOURCE joint ' + oldJointName + ' Skipping...'
             continue
@@ -252,17 +255,21 @@ def DestroyJointChildren(jointName):
 def CleanUnusedInfluenses(skinCluster):
     cmds.select(clear=True)
     weightedInfls = cmds.skinCluster(skinCluster, q=True, wi=True)
-    print weightedInfls
+    #print weightedInfls
+    unusedList = []
     for wi in weightedInfls:
         cmds.skinCluster(skinCluster, e=True, selectInfluenceVerts=wi)
         selected = cmds.ls(sl=True)
         if len(selected) <= 1:
-            print wi + ' REMOVE'
+            #print wi + ' REMOVE'
             cmds.skinCluster(skinCluster, e=True, removeInfluence=wi)
+            unusedList.append(wi)
+    print '     For {0} removed {1} joints {2}'.format(skinCluster, len(unusedList), unusedList)
 
 def CleanUnusedInfluensesOnAllSkinClusters():
     cmds.select(clear=True)
     skinList = cmds.ls(type='skinCluster')
+    print 'Clening unused influenses for {0} skinclusters'.format(len(skinList))
     for s in skinList:
         CleanUnusedInfluenses(s)
     cmds.select(clear=True)
