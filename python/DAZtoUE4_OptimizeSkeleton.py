@@ -177,8 +177,7 @@ def AddEndJoints():
 
 def CreateIkJoint(referenceJnt, parentJnt, ikJntName):
     cmds.select(clear=True)
-    print 'Created IK joint "{0}" corresponding to "{1}" parented to "{2}"'.format(
-        ikJntName, referenceJnt, parentJnt)
+    print 'Created IK joint "{0}" corresponding to "{1}" parented to "{2}"'.format(ikJntName, referenceJnt, parentJnt)
     cmds.select(referenceJnt)
     cmds.joint(name=ikJntName)
     if not parentJnt == referenceJnt:
@@ -366,13 +365,15 @@ def ParentAllGeometryToWorld():
             if cmds.listRelatives(tf, parent=True):
                 cmds.parent(tf, world=True)
 
-def remap(x, in_min, in_max, out_min, out_max):
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
-
 def GenerateBendCorrectiveBones():
     newJoint = 'Knee_L_BCB'
     maxNewJointRatio = 1.0
-    #CreateIkJoint('Leg_L', 'UpLegTwist_L', newJoint)
+    CreateIkJoint('Leg_L', 'UpLegTwist_L', newJoint)
+    cmds.orientConstraint('Leg_L', 'UpLegTwist_L', newJoint, maintainOffset=True)
+
+    cmds.select(newJoint)
+    #return
+
     skinClusterName = 'skinCluster1'
     mesh = GetMeshFromSkinCluster(skinClusterName)
     srcJoints = ['Leg_L', 'UpLegTwist_L']
@@ -413,26 +414,19 @@ def GenerateBendCorrectiveBones():
         weightsDifference = abs(oldWeights[0] - oldWeights[1])
         print oldWeights
         print totalWeight
-        #1 when weights same
-        bendJointTransferAlpha = math.MapRangeClamped(weightsDifference, totalWeight, 0.0, 0.0, 1.0)
-        #bendJointTransferAlpha = 1.0
 
         for i in range(0, 2):
-            '''if oldWeights[i] < (totalWeight * 0.5):
-                newWeight = 0
-                sumNewWeight+=oldWeights[i]
-            else:
-                newWeight = oldWeights[i]'''
-            newWeight = oldWeights[i] * (1.0 - bendJointTransferAlpha)
-            sumNewWeight+=newWeight
+            bendJointTransferAlpha = math.SmoothStep01(math.Clamp01(oldWeights[i] / totalWeight))
+            newWeight = oldWeights[i] * bendJointTransferAlpha
+            sumNewWeight += newWeight
             transformValueList.append([srcJoints[i], newWeight])
 
 
-        transformValueList.append([newJoint, min(totalWeight, max(0.0, totalWeight - sumNewWeight))])
+        transformValueList.append([newJoint, min(totalWeight, max(0.0, totalWeight - sumNewWeight)) - prune_value])
         print 'Vert: {0} value:{1}'.format(v, sumNewWeight)
         cmds.skinPercent(skinClusterName, v, transformValue=transformValueList)
 
-    cmds.select(intersectedVertsList)
+    #cmds.select(intersectedVertsList)
 
 #
 #
