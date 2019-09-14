@@ -1,5 +1,53 @@
 import maya.cmds as cmds
 import time
+#import libHazardMathUtils as hazmath
+
+def ParentAllGeometryToWorld():
+    print 'Parenting geometry to world'
+
+    skinList = cmds.ls(type='skinCluster')
+    meshes = set(sum([cmds.skinCluster(c, q=1, g=1) for c in skinList], []))
+    for mesh in meshes:
+        transformList = cmds.listRelatives(mesh, parent=True)
+        for tf in transformList:
+            if cmds.listRelatives(tf, parent=True):
+                cmds.parent(tf, world=True)
+
+def GetAverageWorldTranslationOfSelected():
+    sel = cmds.ls(sl=True, fl=True)
+    count = len(sel)
+    sums = [0, 0, 0]
+    for item in sel:
+        pos = cmds.xform(item, q=True, worldSpace=True, translation=True)
+        sums[0] += pos[0]
+        sums[1] += pos[1]
+        sums[2] += pos[2]
+    center = [sums[0]/count, sums[1]/count, sums[2]/count]
+    return center
+
+def GetAllSkinClustersInfluencedByJoints(jointsList, bAllJointsRequired=False):
+    if (jointsList is None) or (jointsList == ''):
+        return []
+
+    #convert argument to list if it's not
+    if not isinstance(jointsList, list):
+        jointsList = [jointsList]
+
+    jointsSet = set(jointsList)
+
+    outSkinList = []
+
+    skinList = cmds.ls(type='skinCluster') or []
+    for s in skinList:
+        influencesSet = set(cmds.skinCluster(s, query=True, influence=True))
+        if jointsSet.isdisjoint(influencesSet):
+            continue #no shared elements
+
+        if bAllJointsRequired and (not jointsSet.issubset(influencesSet)):
+            continue #want all joints but not all presented in influencesSet
+        outSkinList.append(s)
+
+    return outSkinList
 
 def GetSkinExportData():
     skinData = []  # transform, shape, skincluster, jointsList
@@ -251,6 +299,13 @@ def DestroyJointChildren(jointName):
 
     print 'DestroyJointChildren: Done'
 
+
+def DestroyUnusedJoints():
+    DestroyMiddleJoint('lMetatarsals')
+    DestroyMiddleJoint('rMetatarsals')
+    DestroyMiddleJoint('pelvis')
+    DestroyJointChildren('lToe')
+    DestroyJointChildren('rToe')
 
 def CleanUnusedInfluenses(skinCluster):
     cmds.select(clear=True)
