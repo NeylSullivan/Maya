@@ -37,125 +37,141 @@ def AddCameraJoint():
 
     print 'Created camera joint FK_CAMERA_SOCKET with world pos {0}'.format(EyesPos)
 
+def GetRenamingDict():
+    dictionary = {
+        'hip': 'Hips',
+        'abdomenLower': 'Spine_1',
+        'abdomenUpper': 'Spine_2',
+        'chestLower': 'Spine_3',
+        'chestUpper': 'Spine_4',
+
+        'neckLower': 'Neck_1',
+        'neckUpper': 'Neck_2',
+        'head': 'Head',
+
+        'lPectoral': 'Pectoral_L',
+        'rPectoral': 'Pectoral_R',
+        # Arm Left
+        'lCollar': 'Clavicle_L',
+        'lShldrBend': 'Arm_L',
+        'lShldrTwist': 'Arm_L_TWIST',
+
+        'lForearmBend': 'ForeArm_L',
+        'lForearmTwist': 'ForeArm_L_TWIST',
+        'lHand': 'Hand_L',
+
+        'lThumb1': 'HandThumb1_L',
+        'lThumb2': 'HandThumb2_L',
+        'lThumb3': 'HandThumb3_L',
+
+        'lCarpal1': 'HandIndex0_L',
+        'lIndex1': 'HandIndex1_L',
+        'lIndex2': 'HandIndex2_L',
+        'lIndex3': 'HandIndex3_L',
+
+        'lCarpal2': 'HandMid0_L',
+        'lMid1': 'HandMid1_L',
+        'lMid2': 'HandMid2_L',
+        'lMid3': 'HandMid3_L',
+
+        'lCarpal3': 'HandRing0_L',
+        'lRing1': 'HandRing1_L',
+        'lRing2': 'HandRing2_L',
+        'lRing3': 'HandRing3_L',
+
+        'lCarpal4': 'HandPinky0_L',
+        'lPinky1': 'HandPinky1_L',
+        'lPinky2': 'HandPinky2_L',
+        'lPinky3': 'HandPinky3_L',
+
+        # Arm Right
+        'rCollar': 'Clavicle_R',
+        'rShldrBend': 'Arm_R',
+        'rShldrTwist': 'Arm_R_TWIST',
+
+        'rForearmBend': 'ForeArm_R',
+        'rForearmTwist': 'ForeArm_R_TWIST',
+        'rHand': 'Hand_R',
+
+        'rThumb1': 'HandThumb1_R',
+        'rThumb2': 'HandThumb2_R',
+        'rThumb3': 'HandThumb3_R',
+
+        'rCarpal1': 'HandIndex0_R',
+        'rIndex1': 'HandIndex1_R',
+        'rIndex2': 'HandIndex2_R',
+        'rIndex3': 'HandIndex3_R',
+
+        'rCarpal2': 'HandMid0_R',
+        'rMid1': 'HandMid1_R',
+        'rMid2': 'HandMid2_R',
+        'rMid3': 'HandMid3_R',
+
+        'rCarpal3': 'HandRing0_R',
+        'rRing1': 'HandRing1_R',
+        'rRing2': 'HandRing2_R',
+        'rRing3': 'HandRing3_R',
+
+        'rCarpal4': 'HandPinky0_R',
+        'rPinky1': 'HandPinky1_R',
+        'rPinky2': 'HandPinky2_R',
+        'rPinky3': 'HandPinky3_R',
+
+        # Leg Left
+        'lThighBend': 'UpLeg_L',
+        'lThighTwist': 'UpLeg_L_TWIST',
+        'lShin': 'Leg_L',
+        'lFoot': 'Foot_L',
+        #rename'lMetatarsals': 'Metatarsals_L',
+        'lToe': 'Toe_L',
+
+        # Leg Right
+        'rThighBend': 'UpLeg_R',
+        'rThighTwist': 'UpLeg_R_TWIST',
+        'rShin': 'Leg_R',
+        'rFoot': 'Foot_R',
+        #rename'rMetatarsals': 'Metatarsals_R',
+        'rToe': 'Toe_R',
+
+        # Face
+        'lEye': 'Eye_L',
+        'rEye': 'Eye_R',
+        'lEar': 'Ear_L',
+        'rEar': 'Ear_R',
+        'upperTeeth': 'UpperTeeth',
+        'lowerJaw': 'LowerJaw',
+        'lowerTeeth': 'LowerTeeth',
+        'tongue01': 'Tongue_1',
+        'tongue02': 'Tongue_2',
+        'tongue03': 'Tongue_3',
+        'tongue04': 'Tongue_4',
+
+        'lowerFaceRig': 'LowerFaceRig',
+        'upperFaceRig': 'UpperFaceRig',
+        # Root
+        'Genesis8Female': 'Root'}
+    return dictionary
+
+def RenameChildren(name):
+    print 'Rename Children for {0}'.format(name)
+    children = cmds.listRelatives(name)
+    for child in children:
+        if child[0] == 'r':
+            mayaUtils.RenameJoint(child, child[1:] + '_R')
+        elif child[0] == 'l':
+            mayaUtils.RenameJoint(child, child[1:] + '_L')
+
+
 def RenameSkeletonJoints():
     print 'Renaming skeleton joints'
 
-    mayaUtils.RenameJoint('hip', 'Hips')
-    mayaUtils.RenameJoint('abdomenLower', 'Spine_1')
-    mayaUtils.RenameJoint('abdomenUpper', 'Spine_2')
-    mayaUtils.RenameJoint('chestLower', 'Spine_3')
-    mayaUtils.RenameJoint('chestUpper', 'Spine_4')
+    renamingDictionary = GetRenamingDict()
 
-    mayaUtils.RenameJoint('neckLower', 'Neck_1')
-    mayaUtils.RenameJoint('neckUpper', 'Neck_2')
-    mayaUtils.RenameJoint('head', 'Head')
+    for oldName, newName in renamingDictionary.iteritems():
+        mayaUtils.RenameJoint(oldName, newName)
 
-    mayaUtils.RenameJoint('lPectoral', 'Pectoral_L')
-    mayaUtils.RenameJoint('rPectoral', 'Pectoral_R')
-    # Arm Left
-    mayaUtils.RenameJoint('lCollar', 'Clavicle_L')
-    mayaUtils.RenameJoint('lShldrBend', 'ArmTop_L')
-    mayaUtils.RenameJoint('lShldrTwist', 'ArmBottom_L')
-
-    mayaUtils.RenameJoint('lForearmBend', 'ForeArmTop_L')
-    mayaUtils.RenameJoint('lForearmTwist', 'ForeArmBottom_L')
-    mayaUtils.RenameJoint('lHand', 'Hand_L')
-
-    mayaUtils.RenameJoint('lThumb1', 'HandThumb1_L')
-    mayaUtils.RenameJoint('lThumb2', 'HandThumb2_L')
-    mayaUtils.RenameJoint('lThumb3', 'HandThumb3_L')
-
-    mayaUtils.RenameJoint('lCarpal1', 'HandIndex0_L')
-    mayaUtils.RenameJoint('lIndex1', 'HandIndex1_L')
-    mayaUtils.RenameJoint('lIndex2', 'HandIndex2_L')
-    mayaUtils.RenameJoint('lIndex3', 'HandIndex3_L')
-
-    mayaUtils.RenameJoint('lCarpal2', 'HandMid0_L')
-    mayaUtils.RenameJoint('lMid1', 'HandMid1_L')
-    mayaUtils.RenameJoint('lMid2', 'HandMid2_L')
-    mayaUtils.RenameJoint('lMid3', 'HandMid3_L')
-
-    mayaUtils.RenameJoint('lCarpal3', 'HandRing0_L')
-    mayaUtils.RenameJoint('lRing1', 'HandRing1_L')
-    mayaUtils.RenameJoint('lRing2', 'HandRing2_L')
-    mayaUtils.RenameJoint('lRing3', 'HandRing3_L')
-
-    mayaUtils.RenameJoint('lCarpal4', 'HandPinky0_L')
-    mayaUtils.RenameJoint('lPinky1', 'HandPinky1_L')
-    mayaUtils.RenameJoint('lPinky2', 'HandPinky2_L')
-    mayaUtils.RenameJoint('lPinky3', 'HandPinky3_L')
-
-    # Arm Right
-    mayaUtils.RenameJoint('rCollar', 'Clavicle_R')
-    mayaUtils.RenameJoint('rShldrBend', 'ArmTop_R')
-    mayaUtils.RenameJoint('rShldrTwist', 'ArmBottom_R')
-
-    mayaUtils.RenameJoint('rForearmBend', 'ForeArmTop_R')
-    mayaUtils.RenameJoint('rForearmTwist', 'ForeArmBottom_R')
-    mayaUtils.RenameJoint('rHand', 'Hand_R')
-
-    mayaUtils.RenameJoint('rThumb1', 'HandThumb1_R')
-    mayaUtils.RenameJoint('rThumb2', 'HandThumb2_R')
-    mayaUtils.RenameJoint('rThumb3', 'HandThumb3_R')
-
-    mayaUtils.RenameJoint('rCarpal1', 'HandIndex0_R')
-    mayaUtils.RenameJoint('rIndex1', 'HandIndex1_R')
-    mayaUtils.RenameJoint('rIndex2', 'HandIndex2_R')
-    mayaUtils.RenameJoint('rIndex3', 'HandIndex3_R')
-
-    mayaUtils.RenameJoint('rCarpal2', 'HandMid0_R')
-    mayaUtils.RenameJoint('rMid1', 'HandMid1_R')
-    mayaUtils.RenameJoint('rMid2', 'HandMid2_R')
-    mayaUtils.RenameJoint('rMid3', 'HandMid3_R')
-
-    mayaUtils.RenameJoint('rCarpal3', 'HandRing0_R')
-    mayaUtils.RenameJoint('rRing1', 'HandRing1_R')
-    mayaUtils.RenameJoint('rRing2', 'HandRing2_R')
-    mayaUtils.RenameJoint('rRing3', 'HandRing3_R')
-
-    mayaUtils.RenameJoint('rCarpal4', 'HandPinky0_R')
-    mayaUtils.RenameJoint('rPinky1', 'HandPinky1_R')
-    mayaUtils.RenameJoint('rPinky2', 'HandPinky2_R')
-    mayaUtils.RenameJoint('rPinky3', 'HandPinky3_R')
-
-    # Leg Left
-    mayaUtils.RenameJoint('lThighBend', 'UpLeg_L')
-    mayaUtils.RenameJoint('lThighTwist', 'UpLegTwist_L')
-    mayaUtils.RenameJoint('lShin', 'Leg_L')
-    mayaUtils.RenameJoint('lFoot', 'Foot_L')
-    #rename('lMetatarsals', 'Metatarsals_L')
-    mayaUtils.RenameJoint('lToe', 'Toe_L')
-
-    # Leg Right
-    mayaUtils.RenameJoint('rThighBend', 'UpLeg_R')
-    mayaUtils.RenameJoint('rThighTwist', 'UpLegTwist_R')
-    mayaUtils.RenameJoint('rShin', 'Leg_R')
-    mayaUtils.RenameJoint('rFoot', 'Foot_R')
-    #rename('rMetatarsals', 'Metatarsals_R')
-    mayaUtils.RenameJoint('rToe', 'Toe_R')
-
-    # Face
-    mayaUtils.RenameJoint('lEye', 'Eye_L')
-    mayaUtils.RenameJoint('rEye', 'Eye_R')
-    mayaUtils.RenameJoint('lEar', 'Ear_L')
-    mayaUtils.RenameJoint('rEar', 'Ear_R')
-    mayaUtils.RenameJoint('upperTeeth', 'UpperTeeth')
-    mayaUtils.RenameJoint('lowerJaw', 'LowerJaw')
-    mayaUtils.RenameJoint('lowerTeeth', 'LowerTeeth')
-    mayaUtils.RenameJoint('tongue01', 'Tongue_1')
-    mayaUtils.RenameJoint('tongue02', 'Tongue_2')
-    mayaUtils.RenameJoint('tongue03', 'Tongue_3')
-    mayaUtils.RenameJoint('tongue04', 'Tongue_4')
-
-    mayaUtils.RenameJoint('lowerFaceRig', 'LowerFaceRig')
-    mayaUtils.RenameChildren('LowerFaceRig')
-
-    mayaUtils.RenameJoint('upperFaceRig', 'UpperFaceRig')
-    mayaUtils.RenameChildren('UpperFaceRig')
-
-    # Root
-    mayaUtils.RenameJoint('Genesis8Female', 'Root')
-
+    RenameChildren('LowerFaceRig')
+    RenameChildren('UpperFaceRig')
 
 
 def OptimizeBodyMaterials():
@@ -193,8 +209,10 @@ def OptimizeBodyMaterials():
 
     print 'Baking history'
     cmds.bakePartialHistory(shape, prePostDeformers=True)
-    cmds.bakePartialHistory(mouthShape, prePostDeformers=True)
-    cmds.bakePartialHistory(eyesShape, prePostDeformers=True)
+    if mouthShape:
+        cmds.bakePartialHistory(mouthShape, prePostDeformers=True)
+    if eyesShape:
+        cmds.bakePartialHistory(eyesShape, prePostDeformers=True)
 
     mayaUtils.CleanUnusedInfluensesOnAllSkinClusters()
 
@@ -232,6 +250,7 @@ def DuplicateSkeletonJoints(oldSkeletonRoot, newJointsPrefix):
     #print jointsList
 
     for j in jointsList:
+        print j
         pos = cmds.joint(j, q=True, absolute=True)
         oldName = cmds.joint(j, q=True, name=True)
         oldOrientation = cmds.joint(j, q=True, orientation=True)
@@ -247,7 +266,7 @@ def FixNewJointsOrientation():
     print 'Fixing joint orientation'
 
     # Root
-    mayaUtils.RotateJoint("DAZ_Root", 90, 0, 90)
+    mayaUtils.RotateJoint("DAZ_Root", 00, 0, 0)
 
     # Spine
     mayaUtils.RotateJoint("DAZ_Hips", 90, 0, 90)
@@ -265,7 +284,7 @@ def FixNewJointsOrientation():
 
     # Leg Left
     mayaUtils.RotateJoint("DAZ_UpLeg_L", 90, 0, -90)
-    mayaUtils.RotateJoint("DAZ_UpLegTwist_L", 90, 0, -90)
+    mayaUtils.RotateJoint("DAZ_UpLeg_L_TWIST", 90, 0, -90)
     mayaUtils.RotateJoint("DAZ_Leg_L", 90, 0, -90)
     # copy rotation from Leg
     cmds.xform('DAZ_Foot_L', absolute=True, rotation=cmds.xform('DAZ_Leg_L', q=True, absolute=True, rotation=True))
@@ -273,7 +292,7 @@ def FixNewJointsOrientation():
 
     # Leg Right
     mayaUtils.RotateJoint("DAZ_UpLeg_R", 90, 0, -90)
-    mayaUtils.RotateJoint("DAZ_UpLegTwist_R", 90, 0, -90)
+    mayaUtils.RotateJoint("DAZ_UpLeg_R_TWIST", 90, 0, -90)
     mayaUtils.RotateJoint("DAZ_Leg_R", 90, 0, -90)
     # copy rotation from Leg
     cmds.xform('DAZ_Foot_R', absolute=True, rotation=cmds.xform('DAZ_Leg_R', q=True, absolute=True, rotation=True))
@@ -282,10 +301,10 @@ def FixNewJointsOrientation():
     # Arm Left
 
     mayaUtils.RotateJoint("DAZ_Clavicle_L", 90)
-    mayaUtils.RotateJoint("DAZ_ArmTop_L", 90)
-    mayaUtils.RotateJoint("DAZ_ArmBottom_L", 90)
-    mayaUtils.RotateJoint("DAZ_ForeArmTop_L", 90)
-    mayaUtils.RotateJoint("DAZ_ForeArmBottom_L", 90)
+    mayaUtils.RotateJoint("DAZ_Arm_L", 90)
+    mayaUtils.RotateJoint("DAZ_Arm_L_TWIST", 90)
+    mayaUtils.RotateJoint("DAZ_ForeArm_L", 90)
+    mayaUtils.RotateJoint("DAZ_ForeArm_L_TWIST", 90)
     mayaUtils.RotateJoint("DAZ_Hand_L", 90)
 
     mayaUtils.RotateJoint('DAZ_HandThumb1_L', 180)
@@ -315,10 +334,10 @@ def FixNewJointsOrientation():
     # Arm Right
 
     mayaUtils.RotateJoint("DAZ_Clavicle_R", -90, 180)
-    mayaUtils.RotateJoint("DAZ_ArmTop_R", -90, 180)
-    mayaUtils.RotateJoint("DAZ_ArmBottom_R", -90, 180)
-    mayaUtils.RotateJoint("DAZ_ForeArmTop_R", -90, 180)
-    mayaUtils.RotateJoint("DAZ_ForeArmBottom_R", -90, 180)
+    mayaUtils.RotateJoint("DAZ_Arm_R", -90, 180)
+    mayaUtils.RotateJoint("DAZ_Arm_R_TWIST", -90, 180)
+    mayaUtils.RotateJoint("DAZ_ForeArm_R", -90, 180)
+    mayaUtils.RotateJoint("DAZ_ForeArm_R_TWIST", -90, 180)
     mayaUtils.RotateJoint("DAZ_Hand_R", -90, 180)
 
     mayaUtils.RotateJoint('DAZ_HandThumb1_R', -180, 180)
@@ -381,6 +400,20 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
         cmds.parent(newName, newParentName)
         print 'Parenting {0} to {1}'.format(newName, newParentName)
 
+    twistJoints = cmds.ls(newJointsPrefix+'*_TWIST')
+    for j in twistJoints:
+        parent = cmds.listRelatives(j, parent=True)
+        children = cmds.listRelatives(j)
+        if children is not None:
+            for child in children:
+                print 'Reparenting twist joint {0} child {1} to {2}'.format(j, child, parent[0])
+                cmds.parent(child, parent[0])
+
+def SetJointsVisualProperties():
+    joints = cmds.ls('*_TWIST')
+    joints += cmds.ls('*_BEND')
+    for j in joints:
+        cmds.setAttr(j + '.radius', 3)
 
 def RenameNewSkeleton():
     print 'Renaming new skeleton'
@@ -457,14 +490,14 @@ def MakeBendCorrectiveJoint(name, referenceJnt, parentJnt, donorJntsList=None):
 
 def MakeBendCorrectiveJoints():
     print 'MakeBendCorrectiveJoints'
-    MakeBendCorrectiveJoint('Knee_L_BEND', 'Leg_L', 'UpLegTwist_L')
-    MakeBendCorrectiveJoint('Knee_R_BEND', 'Leg_R', 'UpLegTwist_R')
+    MakeBendCorrectiveJoint('Knee_L_BEND', 'Leg_L', 'UpLeg_L', ['UpLeg_L_TWIST', 'Leg_L'])
+    MakeBendCorrectiveJoint('Knee_R_BEND', 'Leg_R', 'UpLeg_R', ['UpLeg_R_TWIST', 'Leg_R'])
 
     MakeBendCorrectiveJoint('Butt_L_BEND', 'UpLeg_L', 'Hips')
     MakeBendCorrectiveJoint('Butt_R_BEND', 'UpLeg_R', 'Hips')
 
-    MakeBendCorrectiveJoint('Shoulder_L_BEND', 'ArmTop_L', 'Clavicle_L')
-    MakeBendCorrectiveJoint('Shoulder_R_BEND', 'ArmTop_R', 'Clavicle_R')
+    MakeBendCorrectiveJoint('Shoulder_L_BEND', 'Arm_L', 'Clavicle_L')
+    MakeBendCorrectiveJoint('Shoulder_R_BEND', 'Arm_R', 'Clavicle_R')
 
-    MakeBendCorrectiveJoint('Elbow_L_BEND', 'ForeArmTop_L', 'ArmBottom_L')
-    MakeBendCorrectiveJoint('Elbow_R_BEND', 'ForeArmTop_R', 'ArmBottom_R')
+    MakeBendCorrectiveJoint('Elbow_L_BEND', 'ForeArm_L', 'Arm_L', ['Arm_L_TWIST', 'ForeArm_L'])
+    MakeBendCorrectiveJoint('Elbow_R_BEND', 'ForeArm_R', 'Arm_R', ['Arm_R_TWIST', 'ForeArm_R'])

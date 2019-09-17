@@ -1,6 +1,11 @@
 import maya.cmds as cmds
 import time
+import winsound
 #import libHazardMathUtils as hazmath
+
+def NotifyWithSound():
+    for i in range(1, 5):
+        winsound.Beep(1000 + i * 5, 150)
 
 def ParentAllGeometryToWorld():
     print 'Parenting geometry to world'
@@ -69,6 +74,19 @@ def GetSkinExportData():
                     #print joints
     return skinData
 
+
+def ExportSkinning(skinData):
+    for sd in skinData:
+        #print sd
+        fileName = sd[0] + '_WEIGHTS.xml'
+        cmds.deformerWeights(fileName, ex=True, deformer=sd[2])
+
+def ImportSkinning(skinData):
+    for sd in skinData:
+        #print sd
+        cmds.skinCluster(sd[3], sd[0], name=sd[2], tsb=True)
+        fileName = sd[0] + '_WEIGHTS.xml'
+        cmds.deformerWeights(fileName, im=True, deformer=sd[2], method='index')
 
 def SetSkinMethodForAllSkinClusters(skinMethod):
     skinList = cmds.ls(type='skinCluster')
@@ -156,14 +174,6 @@ def RenameJoint(oldName, newName):
     else:
         print 'RenameJoint: {0} is not exist. Aborting renaming to {1}!'.format(oldName, newName)
 
-def RenameChildren(name):
-    print 'Rename Children for {0}'.format(name)
-    children = cmds.listRelatives(name)
-    for child in children:
-        if child[0] == 'r':
-            RenameJoint(child, child[1:] + '_R')
-        elif child[0] == 'l':
-            RenameJoint(child, child[1:] + '_L')
 
 def FixMaxInfluencesForAllSkinClusters(maxInfluences):
     print 'Starting FixMaxInfluencesForAllSkinClusters'
@@ -433,9 +443,19 @@ def DeleteFacesByMat(shape, matList, bInvert=False):
         cmds.delete(difference)
     #cmds.bakePartialHistory(shape, prePostDeformers=True)
 
+def IsShapeContainAnyMat(shape, matList):
+    for m in matList:
+        faces = GetFacesByMat(shape, m)
+        if faces: #not empty
+            return True #one material is enought
+    return False
 
 def DetachSkinnedMeshByMat(shape, matList, newMeshSuffix=''):
-    newShape = DuplicateSkinnedMesh(shape, newMeshSuffix)
-    DeleteFacesByMat(shape, matList)
-    DeleteFacesByMat(newShape, matList, True)
-    return newShape
+    print 'Detaching from skinned mesh {0} materials {1} with new name {0}{2}'.format(shape, matList, newMeshSuffix)
+    if IsShapeContainAnyMat(shape, matList):
+        newShape = DuplicateSkinnedMesh(shape, newMeshSuffix)
+        DeleteFacesByMat(shape, matList)
+        DeleteFacesByMat(newShape, matList, True)
+        return newShape
+    print 'Aborted - no materials in shape'
+    return None

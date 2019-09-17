@@ -6,10 +6,26 @@ import libHazardDazUtils as dazUtils
 reload(mayaUtils)
 reload(dazUtils)
 
+def test():
+    mayaUtils.ParentAllGeometryToWorld()
+    mayaUtils.ResetBindPoseForAllSkinClusters()
+    mayaUtils.SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
+    dazUtils.RenameSkeletonJoints()
+    oldJoints = mayaUtils.GetHierarchy('Root')
+    dazUtils.DuplicateSkeletonJoints('Root', 'DAZ_')
+    dazUtils.FixNewJointsOrientation()
+    dazUtils.RecreateHierarchy('Root', 'DAZ_')
+
+    cmds.delete(oldJoints)
+    dazUtils.RenameNewSkeleton()
+
+
+
+
 #
 #   MAIN
 #
-def OptymizeSkeleton():
+def OptimizeSkeleton():
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -25,27 +41,15 @@ def OptymizeSkeleton():
     # collect data for skin export
     skinData = mayaUtils.GetSkinExportData()  # transform, shape, skincluster, jointsList
 
-    # export skinning
-    for sd in skinData:
-        #print sd
-        fileName = sd[0] + '_WEIGHTS.xml'
-        cmds.deformerWeights(fileName, ex=True, deformer=sd[2])
-
+    mayaUtils.ExportSkinning(skinData)          # export skinning
     dazUtils.DuplicateSkeletonJoints('Root', 'DAZ_')
     dazUtils.FixNewJointsOrientation()
     dazUtils.RecreateHierarchy('Root', 'DAZ_')
 
-
     cmds.delete(oldJoints)
-
     dazUtils.RenameNewSkeleton()
 
-    #import skinning
-    for sd in skinData:
-        #print sd
-        cmds.skinCluster(sd[3], sd[0], name=sd[2], tsb=True)
-        fileName = sd[0] + '_WEIGHTS.xml'
-        cmds.deformerWeights(fileName, im=True, deformer=sd[2], method='index')
+    mayaUtils.ImportSkinning(skinData)          # import skinning
 
     cmds.select(clear=True)
 
@@ -55,6 +59,11 @@ def OptymizeSkeleton():
     dazUtils.MakeBendCorrectiveJoints()
     dazUtils.CreateIkJoints()
 
+    dazUtils.SetJointsVisualProperties()
+
     dazUtils.OptimizeBodyMaterials()
 
+    mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
+
     print 'FINISHED skeleton and mesh optimization: time taken %.02f seconds' % (time.clock()-start)
+    mayaUtils.NotifyWithSound()
