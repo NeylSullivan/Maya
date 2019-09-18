@@ -7,6 +7,16 @@ reload(hazMath)
 reload(mayaUtils)
 
 
+def RemoveObjectsByWildcard(objectsList, objectType, rootOnly=True):
+    print 'RemoveObjectsByWildcard ({0} objects, type={1}, rootOnly={2})'.format(len(objectsList), objectType, rootOnly)
+
+    for o in objectsList:
+        result = cmds.ls(objectsList, type=objectType, objectsOnly=True, long=True) or []
+        print '\tWildcard "{0}" found {1} object'.format(o, len(result))
+        for r in result:
+            print '\t\tDeleting object{0}'.format(r)
+            cmds.delete(r)
+
 def AddEndJoints():
     cmds.select(clear=True)
     srcJoints = ['HandThumb3_L', 'HandIndex3_L', 'HandMid3_L', 'HandRing3_L', 'HandPinky3_L']
@@ -206,6 +216,7 @@ def OptimizeBodyMaterials():
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Face')
 
     mayaUtils.RenameMaterial('Torso', 'Body')
+    mayaUtils.RenameMaterial('HazardEyes', 'Eyes')
 
     print 'Baking history'
     cmds.bakePartialHistory(shape, prePostDeformers=True)
@@ -250,7 +261,7 @@ def DuplicateSkeletonJoints(oldSkeletonRoot, newJointsPrefix):
     #print jointsList
 
     for j in jointsList:
-        print j
+        #print j
         pos = cmds.joint(j, q=True, absolute=True)
         oldName = cmds.joint(j, q=True, name=True)
         oldOrientation = cmds.joint(j, q=True, orientation=True)
@@ -385,7 +396,7 @@ def FixNewJointsOrientation():
 def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
     print 'Recreating hierarchy'
 
-    jointsList = cmds.listRelatives(oldSkeletonRoot, allDescendents=True, type="joint")#Root is already unparrented
+    jointsList = cmds.listRelatives(oldSkeletonRoot, allDescendents=True, type="joint")#Root is already unparrented, we dont need it
 
     for j in jointsList:
         parent = cmds.listRelatives(j, parent=True, type='joint')
@@ -393,11 +404,18 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
             continue
         oldName = cmds.joint(j, q=True, name=True)
         oldParentName = cmds.joint(parent, q=True, name=True)
-
         newName = newJointsPrefix + oldName
         newParentName = newJointsPrefix + oldParentName
+        if oldName == 'UpLeg_L' or oldName == 'UpLeg_R': #connect legs to Hips, not to pelvis
+            newParentName = newJointsPrefix + 'Hips'
+        elif oldName == 'Toe_L':
+            newParentName = newJointsPrefix + 'Foot_L' #not to lMetatarsals
+        elif oldName == 'Toe_R':
+            newParentName = newJointsPrefix + 'Foot_R' #not to rMetatarsals
+
         #print newParentName
         cmds.parent(newName, newParentName)
+
         print 'Parenting {0} to {1}'.format(newName, newParentName)
 
     twistJoints = cmds.ls(newJointsPrefix+'*_TWIST')
@@ -408,6 +426,22 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
             for child in children:
                 print 'Reparenting twist joint {0} child {1} to {2}'.format(j, child, parent[0])
                 cmds.parent(child, parent[0])
+
+    #Remove unused bones if exists (for animation retarheting mode)
+    unusedList = ['pelvis', 'lMetatarsals', 'rMetatarsals']
+    for j in unusedList:
+        if cmds.objExists(newJointsPrefix + j): #still use prefix
+            cmds.delete(newJointsPrefix + j)
+            print 'Deleting joint {0}'.format(newJointsPrefix + j)
+
+    orphanParentsList = ['Toe_L', 'Toe_R']
+    for j in orphanParentsList:
+        if cmds.objExists(newJointsPrefix + j): #still use prefix
+            childrenList = cmds.listRelatives(newJointsPrefix + j, allDescendents=True) or []
+            for c in childrenList:
+                cmds.delete(c)
+                print 'Deleting {0} - child joint of {1} '.format(c, newJointsPrefix + j)
+
 
 def SetJointsVisualProperties():
     joints = cmds.ls('*_TWIST')

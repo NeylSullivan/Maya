@@ -324,8 +324,10 @@ def CleanUnusedInfluenses(skinCluster):
     unusedList = []
     for wi in weightedInfls:
         cmds.skinCluster(skinCluster, e=True, selectInfluenceVerts=wi)
-        selected = cmds.ls(sl=True)
-        if len(selected) <= 1:
+        sel = cmds.ls(selection=True, flatten=True)
+        onlyVertices = cmds.filterExpand(sel, sm=31)
+        #print onlyVertices
+        if not onlyVertices:
             #print wi + ' REMOVE'
             cmds.skinCluster(skinCluster, e=True, removeInfluence=wi)
             unusedList.append(wi)
