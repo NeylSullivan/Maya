@@ -8,6 +8,43 @@ reload(mayaUtils)
 reload(dazUtils)
 
 
+def test():
+    cmds.select(clear=True)
+    shape = mayaUtils.FindShapeByMat('Body') #new name is 'Body'
+    all_faces = cmds.filterExpand(cmds.polyListComponentConversion(shape, toFace=True), sm=34, expand=True)
+    matched_faces = []
+
+    file_node = cmds.shadingNode("file", asTexture=True)
+    filePath = (r'e:\blackops\__WorkFlow\Maya\Resources\head_mask.tga')
+    cmds.setAttr('%s.fileTextureName' % file_node, filePath, type="string")
+    cmds.select(clear=True)
+
+    for f in all_faces:
+        alpha = 0.0
+        uvs = cmds.filterExpand(cmds.polyListComponentConversion(f, toUV=True, border=True), sm=35, expand=True)
+        #print uvs
+        uList =[]
+        vList =[]
+        for uv in uvs:
+            UVValues = cmds.polyEditUV(uv, query=True )
+            uList.append(UVValues[0])
+            vList.append(UVValues[1])
+            #print UVValues
+        uCoord = sum(uList) / len(uList)
+        vCoord = sum(vList) / len(vList)
+
+        try:
+            alpha = cmds.colorAtPoint(file_node, u=uCoord, v=vCoord)[0] #[0.2499994933605194, 0.80069500207901]
+            print alpha
+        except:
+            pass
+
+        if(alpha > 0.6):
+            
+            matched_faces.append(f)
+    cmds.delete(file_node)
+    cmds.select(matched_faces)
+
 #
 #   MAIN
 #
