@@ -40,6 +40,24 @@ def NotifyWithSound():
     for i in range(1, 5):
         winsound.Beep(1000 + i * 5, 150)
 
+def SetAverageNormalsForBorderVertices(mesh):
+    print 'SetAverageNormalsForBorderVertices(mesh = {0})'.format(mesh)
+    cmds.select(clear=True)
+    borderVertsList = []
+
+    cmds.select(mesh)
+    cmds.selectType(polymeshEdge=True)
+    cmds.polySelectConstraint(mode=3, type=0x8000, where=1) # to get border vertices
+    borderVerts = cmds.polyListComponentConversion(tv=True)
+    borderVertsList.extend(borderVerts)
+    cmds.polySelectConstraint(mode=0, sh=0, bo=0)
+    cmds.select(clear=True)
+
+    cmds.select(borderVertsList)
+    cmds.polyAverageNormal(distance=0.2)
+    cmds.select(clear=True)
+
+
 
 def SetVertexColorForBorderVertices():
     print 'SetVertexColorForBorderVertices()'

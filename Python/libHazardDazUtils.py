@@ -2,10 +2,32 @@ import maya.cmds as cmds
 import time
 import libHazardMathUtils as hazMath
 import libHazardMayaUtils as mayaUtils
+import libHazardSelectionUtils as selUtils
 
 reload(hazMath)
 reload(mayaUtils)
+reload(selUtils)
 
+def CutAndMoveUVForBodyPartsHiding(shape, mask, uOffset):
+    cmds.select(clear=True)
+    print 'CutAndMoveUVForBodyPartsHiding shape{0}, mask "{1}", uOffset {2}'.format(shape, mask, uOffset)
+    matched_faces = selUtils.GetFacesByBitmapMask(shape, mask)
+    cmds.polyChipOff(matched_faces, dup=False)
+    cmds.polyEditUV(matched_faces, u=uOffset)
+    cmds.bakePartialHistory(shape, prePostDeformers=True)
+    cmds.select(clear=True)
+
+
+def CutMeshAndOffsetUVs():
+    cmds.select(clear=True)
+    shape = mayaUtils.FindShapeByMat('Body') #new name is 'Body'
+    CutAndMoveUVForBodyPartsHiding(shape, r'e:\blackops\__WorkFlow\Maya\Resources\head_mask.tga', 1.0)
+    CutAndMoveUVForBodyPartsHiding(shape, r'e:\blackops\__WorkFlow\Maya\Resources\hands_mask.tga', 2.0)
+    CutAndMoveUVForBodyPartsHiding(shape, r'e:\blackops\__WorkFlow\Maya\Resources\feet_mask.tga', 3.0)
+
+    mayaUtils.SetVertexColorForBorderVertices()
+    mayaUtils.SetAverageNormalsForBorderVertices(shape)
+    cmds.bakePartialHistory(shape, prePostDeformers=True)
 
 def RenameAndCombineMeshes():
     print 'RenameAndCombineMeshes()'
