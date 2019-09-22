@@ -1,11 +1,70 @@
 import maya.cmds as cmds
+import maya.OpenMaya as om
 import time
 import winsound
+
 #import libHazardMathUtils as hazmath
+
+def GetDagPath(nodeName):
+    sel = om.MSelectionList()
+    om.MGlobal.getSelectionListByName(nodeName, sel)
+
+    dp = om.MDagPath()
+
+    sel.getDagPath(0, dp)
+    return dp
+
+
+def UvCoordToWorld(U, V, mesh):
+
+    mfnMesh = om.MFnMesh(GetDagPath(mesh))
+    numFaces = mfnMesh.numPolygons()
+
+    WSpoint = om.MPoint(0.0, 0.0, 0.0)
+
+    util2 = om.MScriptUtil()
+    util2.createFromList((U, V), 2)
+    float2ParamUV = util2.asFloat2Ptr()
+
+    for i in range(numFaces):
+        try:
+            mfnMesh.getPointAtUV(i,WSpoint, float2ParamUV, om.MSpace.kWorld)
+            break #point is in poly
+        except:
+            continue #point not found!
+
+    return WSpoint
+
 
 def NotifyWithSound():
     for i in range(1, 5):
         winsound.Beep(1000 + i * 5, 150)
+
+
+def SetVertexColorForBorderVertices():
+    print 'SetVertexColorForBorderVertices()'
+    skinList = cmds.ls(type='skinCluster')
+    cmds.select(clear=True)
+    borderVertsList = []
+
+    for s in skinList:
+        cmds.select(clear=True)
+        mesh = GetMeshFromSkinCluster(s)
+        cmds.select(mesh)
+        cmds.selectType(polymeshFace=True)
+        cmds.polySelectConstraint(mode=3, type=8, where=1) # to get border vertices
+        borderVerts = cmds.polyListComponentConversion(tv=True)
+        borderVertsList.extend(borderVerts)
+        cmds.polySelectConstraint(mode=0, sh=0, bo=0)
+        cmds.select(clear=True)
+
+        allVerts = cmds.polyListComponentConversion(mesh, tv=True)
+        cmds.polyColorPerVertex(allVerts, rgb=(1.0, 1.0, 1.0))
+
+    cmds.select(borderVertsList)
+    cmds.polyColorPerVertex(borderVertsList, rgb=(0.0, 1.0, 1.0))
+    cmds.select(clear=True)
+
 
 def ParentAllGeometryToWorld():
     print 'Parenting geometry to world'
@@ -355,6 +414,33 @@ def GetSkinCluster(mesh):
         if skins:
             return skins[0]
     return None
+
+def GetSGfromShader(shader=None):
+    if shader:
+        if cmds.objExists(shader):
+            sgq = cmds.listConnections(shader, d=True, et=True, t='shadingEngine')
+            if sgq:
+                return sgq[0]
+
+    return None
+
+def AssignObjectListToShader(objList=None, shader=None):
+    """
+    Assign the shader to the object list
+    arguments:
+        objList: list of objects or faces
+    """
+    # assign selection to the shader
+    shaderSG = GetSGfromShader(shader)
+    if objList:
+        if shaderSG:
+            cmds.sets(objList, e=True, forceElement=shaderSG)
+        else:
+            print 'The provided shader didn\'t returned a shaderSG'
+    else:
+        print 'Please select one or more objects'
+
+
 
 def GetFacesByMat(shape, mat):
     shapeMats = cmds.listConnections(cmds.listHistory(shape, f=1), type='lambert')

@@ -7,6 +7,63 @@ reload(hazMath)
 reload(mayaUtils)
 
 
+def RenameAndCombineMeshes():
+    print 'RenameAndCombineMeshes()'
+    #Main
+    bodyList = cmds.ls('Genesis8FemaleFBX*Shape', type='transform', objectsOnly=True, long=True)
+    if bodyList:
+        cmds.rename(bodyList[0], 'FemaleBody')
+
+    #
+    #EYES
+    #
+    eyesList = cmds.ls('HazardEyes*', type='transform', objectsOnly=True, long=True)
+
+    if eyesList and len(eyesList) > 1:
+        print '\tCombining {0}'.format(eyesList)
+        cmds.polyUniteSkinned(eyesList, ch=False)
+        cmds.rename('FemaleEyes')
+        cmds.select(clear=True)
+        #clear orphane transforms if exist
+        for o in eyesList:
+            if cmds.objExists(o):
+                cmds.delete(o)
+    else:
+        print '\t No EYES meshes to combine'
+
+    #
+    #MOUTH
+    #
+    mouthList = cmds.ls('*_MOUTH', type='transform', objectsOnly=True, long=True)
+    print mouthList
+
+    teethList = cmds.ls('Teeth*', type='transform', objectsOnly=True, long=True)
+    print teethList
+    mayaUtils.AssignObjectListToShader(teethList, 'Mouth')
+
+    teethMouthList = []
+    if mouthList:
+        teethMouthList.extend(mouthList)
+    if teethList:
+        teethMouthList.extend(teethList)
+
+
+    if teethMouthList and len(teethMouthList) > 1:
+        print '\tCombining {0}'.format(teethMouthList)
+        cmds.polyUniteSkinned(teethMouthList, ch=False)
+        cmds.rename('FemaleMouth')
+        cmds.select(clear=True)
+
+        #clear orphane transforms if exist
+        for o in teethMouthList:
+            if cmds.objExists(o):
+                cmds.delete(o)
+
+    else:
+        print '\t No MOUTH meshes to combine'
+
+
+
 def RemoveObjectsByWildcard(objectsList, objectType, rootOnly=True):
     print 'RemoveObjectsByWildcard ({0} objects, type={1}, rootOnly={2})'.format(len(objectsList), objectType, rootOnly)
 
@@ -14,8 +71,50 @@ def RemoveObjectsByWildcard(objectsList, objectType, rootOnly=True):
         result = cmds.ls(objectsList, type=objectType, objectsOnly=True, long=True) or []
         print '\tWildcard "{0}" found {1} object'.format(o, len(result))
         for r in result:
-            print '\t\tDeleting object{0}'.format(r)
-            cmds.delete(r)
+            if cmds.objExists(r): #still use prefix
+                print '\t\tDeleting object{0}'.format(r)
+                cmds.delete(r)
+
+def AddBreastJoints():
+    print 'AddBreastJoints()'
+    cmds.select(clear=True)
+    srcJointslist = ['Pectoral_L', 'Pectoral_R']
+    for j in srcJointslist:
+        newJointName = j + '_JIGGLE'
+        cmds.select(j)
+        cmds.joint(name=newJointName)
+        cmds.xform(relative=True, translation=[3, 0, 0])
+        skinList = cmds.ls(type='skinCluster')
+        for skinClusterName in skinList:
+            cmds.select(clear=True)
+            influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
+            if j in influences:
+                cmds.skinCluster(skinClusterName, e=True, addInfluence=newJointName, weight=0.0)
+                continue
+        mayaUtils.TransferJointWeights(j, newJointName)
+
+def AddNippleJoints():
+    shape = mayaUtils.FindShapeByMat('Torso')
+    newShape = cmds.duplicate(shape)[0]
+    newShape = cmds.rename(newShape, 'TEMP_TORSO')
+    mayaUtils.DeleteFacesByMat(newShape, ['Torso'], bInvert=True)
+    cmds.bakePartialHistory(newShape, preCache=True)
+
+    AddNippleJoint('Nipple_L', 'Pectoral_L_JIGGLE', [0.5732300281524658, 0.5203400254249573], newShape)
+    AddNippleJoint('Nipple_R', 'Pectoral_R_JIGGLE', [0.4267699718475342, 0.5203400254249573], newShape)
+
+    cmds.delete(newShape)
+
+
+def AddNippleJoint(newJointName, parentName, uvPos, referenceShape):
+    cmds.select(clear=True)
+    cmds.select(parentName)
+    newJointName = cmds.joint(name=newJointName)
+
+    f = mayaUtils.UvCoordToWorld(uvPos[0], uvPos[1], referenceShape)
+    print [f[0], f[1], f[2]]
+    cmds.move(f[0], f[1], f[2], newJointName, absolute=True)
+
 
 def AddEndJoints():
     cmds.select(clear=True)
@@ -25,13 +124,11 @@ def AddEndJoints():
 
     for j in srcJoints:
         newJointName = j + '_END'
-        relativeTranslation = cmds.xform(
-            j, q=True, relative=True, translation=True)
+        relativeTranslation = cmds.xform(j, q=True, relative=True, translation=True)
         cmds.select(j)
         cmds.joint(name=newJointName)
         cmds.xform(relative=True, translation=relativeTranslation)
-        print 'Created end joint {0} from {1} with offset {2}'.format(
-            newJointName, j, relativeTranslation)
+        print 'Created end joint {0} from {1} with offset {2}'.format(newJointName, j, relativeTranslation)
 
 
 def AddCameraJoint():
@@ -286,8 +383,8 @@ def FixNewJointsOrientation():
     mayaUtils.RotateJoint("DAZ_Spine_3", 90, 0, 90)
     mayaUtils.RotateJoint("DAZ_Spine_4", 90, 0, 90)
 
-    mayaUtils.RotateJoint("DAZ_Pectoral_L", 90, 0, 90)
-    mayaUtils.RotateJoint("DAZ_Pectoral_R", 90, 0, 90)
+    mayaUtils.RotateJoint("DAZ_Pectoral_L", 0, -90, 0)
+    mayaUtils.RotateJoint("DAZ_Pectoral_R", 0, -90, 0)
 
     mayaUtils.RotateJoint("DAZ_Neck_1", 90, 0, 90)
     mayaUtils.RotateJoint("DAZ_Neck_2", 90, 0, 90)
