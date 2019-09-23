@@ -8,8 +8,55 @@ import libHazardDazUtils as dazUtils
 reload(mayaUtils)
 reload(dazUtils)
 
+def PreprocessGenitaliaObject():
+    print 'PreprocessGenitaliaObject()'
+    genitaliaMeshes = cmds.ls('HazardFemaleGenitalia*', type='transform', objectsOnly=True) or []
+    if not genitaliaMeshes:
+        print 'Genitalia mesh not find. Aborted'
+
+    genitaliaMesh = genitaliaMeshes[0]
+    print 'Processing {0}'.format(genitaliaMesh)
+    if cmds.listRelatives(genitaliaMesh, parent=True):
+        cmds.parent(genitaliaMesh, world=True) #parent to world first
+
+    #develompent only
+    if cmds.objExists('TEMP_TORSO'):
+        cmds.delete('TEMP_TORSO')
+
+    originalTorso = mayaUtils.FindShapeByMat('Torso')
+    newTorsoShape = cmds.duplicate(originalTorso)[0]
+    newTorsoShape = cmds.rename(newTorsoShape, 'TEMP_TORSO')
+    mayaUtils.DeleteFacesByMat(newTorsoShape, ['Torso'], bInvert=True)
+    cmds.bakePartialHistory(newTorsoShape, preCache=True)
+    if cmds.listRelatives(newTorsoShape, parent=True):
+        cmds.parent(newTorsoShape, world=True) #parent temp mesh also
+
+    cmds.select(clear=True)
+    borderVertsList = mayaUtils.GetBorderVertices(genitaliaMesh)
+    borderVertsList = cmds.filterExpand(borderVertsList, sm=31, expand=True)
+    cmds.select(borderVertsList)
+
+    cmds.select(clear=True)
+
+    #transfer attributes manually
+
+    for v in borderVertsList:
+        pos = cmds.pointPosition(v, world=True)
+        #print pos
+        closestVert = mayaUtils.GetClosestVertex(newTorsoShape, pos)
+        closestVertPos = cmds.xform(closestVert, t=True, ws=True, q=True)
+        closestVertNormal = cmds.polyNormalPerVertex(closestVert, query=True, xyz=True)
+        #print closestVertNormal
+
+        cmds.move(closestVertPos[0], closestVertPos[1], closestVertPos[2], v, absolute=True, worldSpace=True)
+        cmds.polyNormalPerVertex(v, xyz=(closestVertNormal[0], closestVertNormal[1], closestVertNormal[2]))
+
+        #print closestVert
+        #cmds.select(closestVert, add=True)
 
 
+    if cmds.objExists(newTorsoShape):
+        cmds.delete(newTorsoShape)
 
 #
 #   MAIN

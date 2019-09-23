@@ -3,7 +3,57 @@ import maya.OpenMaya as om
 import time
 import winsound
 
-#import libHazardMathUtils as hazmath
+import libHazardMathUtils as hazmath
+reload(hazmath)
+
+
+
+
+#https://gist.github.com/HamtaroDeluxe/67a97305ffbe284e5f104d8b4f9eb0f2
+#returns the closest vertex given a mesh and a position [x,y,z] in world space.
+#Uses om.MfnMesh.getClosestPoint() returned face ID and iterates through face's vertices.
+def GetClosestVertex(mayaMesh,pos=[0,0,0]):
+    doubleArray = om.MScriptUtil()
+    doubleArray.createFromList(pos, 3)
+    mVector = om.MVector(doubleArray.asDoublePtr())#using MVector type to represent position
+
+    mMesh=om.MFnMesh(GetDagPath(mayaMesh))
+    pointA = om.MPoint(mVector)
+    pointB = om.MPoint()
+    space = om.MSpace.kWorld
+
+    util = om.MScriptUtil()
+    util.createFromInt(0)
+    idPointer = util.asIntPtr()
+
+
+    mMesh.getClosestPoint(pointA, pointB, space, idPointer)
+    idx = om.MScriptUtil(idPointer).asInt()
+
+    faceVerts = cmds.ls( cmds.polyListComponentConversion (mayaMesh+'.f['+str(idx)+']',ff=True,tv=True),flatten=True)#face's vertices list
+    closestVert = None
+    minLength = None
+    for v in faceVerts:
+        thisLength = hazmath.GetDistance(pos, cmds.pointPosition(v, world=True))
+        if minLength is None or thisLength < minLength:
+            minLength = thisLength
+            closestVert = v
+    return closestVert
+
+
+    """list=cmds.ls( cmds.polyListComponentConversion (mayaMesh+'.f['+str(idx)+']',ff=True,tv=True),flatten=True)#face's vertices list
+    #setting vertex [0] as the closest one
+    d = mVector - om.MVector(cmds.xform(list[0], t=True, ws=True, q=True))
+    smallestDist2=d.x*d.x+d.y*d.y+d.z*d.z #using distance squared to compare distance
+    closest=list[0]
+    #iterating from vertex [1]
+    for i in range(1,len(list)) :
+        d=mVector-om.MVector(cmds.xform(list[i],t=True,ws=True,q=True))
+        d2=d.x*d.x+d.y*d.y+d.z*d.z
+        if d2<smallestDist2:
+            smallestDist2=d2
+            closest=list[i]
+    return closest"""
 
 def GetDagPath(nodeName):
     sel = om.MSelectionList()
@@ -40,8 +90,14 @@ def NotifyWithSound():
     for i in range(1, 5):
         winsound.Beep(1000 + i * 5, 150)
 
-def SetAverageNormalsForBorderVertices(mesh):
-    print 'SetAverageNormalsForBorderVertices(mesh = {0})'.format(mesh)
+def GetBorderFaces(mesh):
+    cmds.select(clear=True)
+    borderVertsList = GetBorderVertices(mesh)
+    borderFacesList = cmds.polyListComponentConversion(borderVertsList, tf=True)
+    return borderFacesList
+
+
+def GetBorderVertices(mesh):
     cmds.select(clear=True)
     borderVertsList = []
 
@@ -52,7 +108,11 @@ def SetAverageNormalsForBorderVertices(mesh):
     borderVertsList.extend(borderVerts)
     cmds.polySelectConstraint(mode=0, sh=0, bo=0)
     cmds.select(clear=True)
+    return borderVertsList
 
+def SetAverageNormalsForBorderVertices(mesh):
+    print 'SetAverageNormalsForBorderVertices(mesh = {0})'.format(mesh)
+    borderVertsList = GetBorderVertices(mesh)
     cmds.select(borderVertsList)
     cmds.polyAverageNormal(distance=0.2)
     cmds.select(clear=True)
