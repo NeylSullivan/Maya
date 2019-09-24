@@ -1,23 +1,27 @@
 import maya.cmds as cmds
+import maya.mel as mel
 import maya.OpenMaya as om
 import time
 import winsound
-
+import fnmatch
 import libHazardMathUtils as hazmath
+
 reload(hazmath)
 
 
-
+def CleanUnusedMaterials():
+    print 'CleanUnusedMaterials()'
+    mel.eval('MLdeleteUnused;')
 
 #https://gist.github.com/HamtaroDeluxe/67a97305ffbe284e5f104d8b4f9eb0f2
 #returns the closest vertex given a mesh and a position [x,y,z] in world space.
 #Uses om.MfnMesh.getClosestPoint() returned face ID and iterates through face's vertices.
-def GetClosestVertex(mayaMesh,pos=[0,0,0]):
+def GetClosestVertex(mayaMesh, pos):
     doubleArray = om.MScriptUtil()
     doubleArray.createFromList(pos, 3)
     mVector = om.MVector(doubleArray.asDoublePtr())#using MVector type to represent position
 
-    mMesh=om.MFnMesh(GetDagPath(mayaMesh))
+    mMesh = om.MFnMesh(GetDagPath(mayaMesh))
     pointA = om.MPoint(mVector)
     pointB = om.MPoint()
     space = om.MSpace.kWorld
@@ -30,7 +34,7 @@ def GetClosestVertex(mayaMesh,pos=[0,0,0]):
     mMesh.getClosestPoint(pointA, pointB, space, idPointer)
     idx = om.MScriptUtil(idPointer).asInt()
 
-    faceVerts = cmds.ls( cmds.polyListComponentConversion (mayaMesh+'.f['+str(idx)+']',ff=True,tv=True),flatten=True)#face's vertices list
+    faceVerts = cmds.ls(cmds.polyListComponentConversion(mayaMesh+'.f[' + str(idx) + ']', ff=True, tv=True), flatten=True)#face's vertices list
     closestVert = None
     minLength = None
     for v in faceVerts:
@@ -39,21 +43,6 @@ def GetClosestVertex(mayaMesh,pos=[0,0,0]):
             minLength = thisLength
             closestVert = v
     return closestVert
-
-
-    """list=cmds.ls( cmds.polyListComponentConversion (mayaMesh+'.f['+str(idx)+']',ff=True,tv=True),flatten=True)#face's vertices list
-    #setting vertex [0] as the closest one
-    d = mVector - om.MVector(cmds.xform(list[0], t=True, ws=True, q=True))
-    smallestDist2=d.x*d.x+d.y*d.y+d.z*d.z #using distance squared to compare distance
-    closest=list[0]
-    #iterating from vertex [1]
-    for i in range(1,len(list)) :
-        d=mVector-om.MVector(cmds.xform(list[i],t=True,ws=True,q=True))
-        d2=d.x*d.x+d.y*d.y+d.z*d.z
-        if d2<smallestDist2:
-            smallestDist2=d2
-            closest=list[i]
-    return closest"""
 
 def GetDagPath(nodeName):
     sel = om.MSelectionList()
@@ -78,9 +67,9 @@ def UvCoordToWorld(U, V, mesh):
 
     for i in range(numFaces):
         try:
-            mfnMesh.getPointAtUV(i,WSpoint, float2ParamUV, om.MSpace.kWorld)
+            mfnMesh.getPointAtUV(i, WSpoint, float2ParamUV, om.MSpace.kWorld)
             break #point is in poly
-        except:
+        except BaseException:
             continue #point not found!
 
     return WSpoint
@@ -259,8 +248,7 @@ def ResetBindPose(sel):
                 dagPose = cmds.dagPose(each, query=True, bindPose=True)
                 if dagPose:
                     cmds.delete(dagPose)
-                dagPose = cmds.listConnections(
-                    skin+'.bindPose', d=False, type='dagPose')
+                dagPose = cmds.listConnections(skin+'.bindPose', d=False, type='dagPose')
                 if dagPose:
                     cmds.delete(dagPose)
 
@@ -518,6 +506,19 @@ def AssignObjectListToShader(objList=None, shader=None):
     else:
         print 'Please select one or more objects'
 
+def GetFacesByMatsWildcard(shape, matWildcard):
+    shapeMats = cmds.listConnections(cmds.listHistory(shape, f=1), type='lambert')
+
+    if not shapeMats:
+        return []
+
+    faces_list = []
+
+    matchingMats = fnmatch.filter(shapeMats, matWildcard)
+    for mat in matchingMats:
+        faces_list.extend(GetFacesByMat(shape, mat))
+
+    return faces_list
 
 
 def GetFacesByMat(shape, mat):
@@ -576,9 +577,16 @@ def FindShapeByMat(mat):
     print 'Could`nt find requested shape'
     return None
 
+def GetShapeTransform(meshTransformOrShape):
+    if cmds.nodeType(meshTransformOrShape) == 'transform':
+        return meshTransformOrShape
+    else:
+        #probably shape
+        return cmds.listRelatives(meshTransformOrShape, parent=True, type='transform')[0]
+
 
 def DuplicateSkinnedMesh(shape, newMeshSuffix=''):
-    shapeTransform = cmds.listRelatives(shape, parent=True, type='transform')[0]
+    shapeTransform = GetShapeTransform(shape)
     oldSkinCluster = GetSkinCluster(shapeTransform)
     oldJoints = cmds.skinCluster(oldSkinCluster, query=True, influence=True)
     #print oldJoints
@@ -625,3 +633,37 @@ def DetachSkinnedMeshByMat(shape, matList, newMeshSuffix=''):
         return newShape
     print 'Aborted - no materials in shape'
     return None
+
+def FindMeshByWildcard(wildcard, preferShapeWithMaxVertices=False, checkForMatWithName=None):
+    shapes = cmds.ls(wildcard, shapes=True, objectsOnly=True, long=False)
+    if shapes is None:
+        return None
+    meshes = cmds.listRelatives(shapes, parent=True, type='transform')
+
+
+    result = None
+
+    if meshes:
+        result = meshes[0] #if no special check, set (and return at end of function) first finded from list
+
+    meshes = list(set(meshes)) #unique only
+
+    if checkForMatWithName:
+        meshesWithMat = []
+        for m in meshes:
+            shapeMats = cmds.listConnections(cmds.listHistory(m, f=1), type='lambert') or []
+            if checkForMatWithName in shapeMats:
+                meshesWithMat.append(m)
+        meshes = meshesWithMat
+
+    if meshes:
+        result = meshes[0]
+
+    if result and meshes and preferShapeWithMaxVertices:
+        for m in meshes:
+            resultVertexNum = cmds.polyEvaluate(result, vertex=True)
+            currentVertexNum = cmds.polyEvaluate(m, vertex=True)
+            if currentVertexNum > resultVertexNum:
+                result = m
+
+    return result
