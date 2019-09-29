@@ -8,7 +8,6 @@ import libHazardDazUtils as dazUtils
 reload(mayaUtils)
 reload(dazUtils)
 
-
 #
 #   MAIN
 #
@@ -22,7 +21,7 @@ def OptimizeSkeleton():
 
     dazUtils.RemoveObjectsByWildcard(['Fingernails_*'], 'transform')
 
-    dazUtils.PreprocessGenitaliaObject()
+
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
     mayaUtils.DestroyUnusedJoints()
@@ -62,11 +61,13 @@ def OptimizeSkeleton():
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
 
-    mayaUtils.SetVertexColorForBorderVertices()
+    mayaUtils.SetVertexColorForBorderVertices() #for genitalia mesh also
 
     dazUtils.RenameAndCombineMeshes()
 
     dazUtils.CutMeshAndOffsetUVs()
+
+    dazUtils.PostprocessGenitaliaObject('HazardFemaleGenitalia*')
 
     mayaUtils.CleanUnusedMaterials()
 

@@ -29,10 +29,10 @@ def GetFacesByBitmapMask(shape, bitmapMaskPath):
             alpha = cmds.colorAtPoint(file_node, u=center[0], v=center[1]) #return array with one element
             alpha = alpha[0]
             #print alpha
-        except:
+        except BaseException:
             pass
 
-        if(alpha > 0.6):
+        if alpha > 0.6:
             matched_faces.append(f)
     cmds.delete(file_node)
     cmds.select(clear=True)

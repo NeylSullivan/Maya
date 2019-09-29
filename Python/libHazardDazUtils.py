@@ -8,60 +8,72 @@ reload(hazMath)
 reload(mayaUtils)
 reload(selUtils)
 
-def PreprocessGenitaliaObject():
-    print 'PreprocessGenitaliaObject()'
+def PostprocessGenitaliaObject(genitaliaMeshWildcard):
+    print 'PostprocessGenitaliaObject(genitaliaMeshWildcard={0})'.format(genitaliaMeshWildcard)
 
-    genitaliaMesh = mayaUtils.FindMeshByWildcard('HazardFemaleGenitalia*')
+    genitaliaMesh = mayaUtils.FindMeshByWildcard(genitaliaMeshWildcard)
     if not genitaliaMesh:
         print 'Genitalia mesh not found. Aborted'
+        return
 
     print 'Processing {0}'.format(genitaliaMesh)
-    if cmds.listRelatives(genitaliaMesh, parent=True):
-        cmds.parent(genitaliaMesh, world=True) #parent to world first
 
+    genitaliaMesh = cmds.rename(genitaliaMesh, 'FemaleGenitalia') #rename to proper name
 
-    #develompent only
-    if cmds.objExists('TEMP_TORSO'):
-        cmds.delete('TEMP_TORSO')
+    #replace material with original torso mat
+    facesWithTorsoMat = mayaUtils.GetFacesByMatsWildcard(genitaliaMesh, 'Torso*')
+    mayaUtils.AssignObjectListToShader(facesWithTorsoMat, 'Body') #use new material name
+    mayaUtils.ArrangeUVByMat(genitaliaMesh, 'Body', su=0.5, sv=0.5, u=0.5, v=0.5)
+    mayaUtils.AppendShadingGroupByMat(genitaliaMesh, 'Anus', 'Vagina')
+    mayaUtils.RenameMaterial('Anus', 'BodyGenitalia')
+    cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
 
-    originalTorso = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
-    newTorsoShape = cmds.duplicate(originalTorso)[0]
-    newTorsoShape = cmds.rename(newTorsoShape, 'TEMP_TORSO')
-    mayaUtils.DeleteFacesByMat(newTorsoShape, ['Torso'], bInvert=True)
-    cmds.bakePartialHistory(newTorsoShape, preCache=True)
-    if cmds.listRelatives(newTorsoShape, parent=True):
-        cmds.parent(newTorsoShape, world=True) #parent temp mesh also
+    bodyMesh = mayaUtils.FindMeshByWildcard('FemaleBody'+'*', checkForMatWithName='Body')
+
+    if not bodyMesh:
+        print '{0} mesh not found. Aborted'
+        return
 
     cmds.select(clear=True)
     borderVertsList = mayaUtils.GetBorderVertices(genitaliaMesh)
     borderVertsList = cmds.filterExpand(borderVertsList, sm=31, expand=True)
-    cmds.select(borderVertsList)
 
-    cmds.select(clear=True)
+    bodySkinCluster = mayaUtils.GetSkinCluster(bodyMesh)
+    genitaliaSkinCluster = mayaUtils.GetSkinCluster(genitaliaMesh)
+
 
     #transfer attributes manually
-
     for v in borderVertsList:
         pos = cmds.pointPosition(v, world=True)
         #print pos
-        closestVert = mayaUtils.GetClosestVertex(newTorsoShape, pos)
+        closestVert = mayaUtils.GetClosestVertex(bodyMesh, pos)
         closestVertPos = cmds.xform(closestVert, t=True, ws=True, q=True)
         closestVertNormal = cmds.polyNormalPerVertex(closestVert, query=True, xyz=True)
-        #print closestVertNormal
 
+        # set position
         cmds.move(closestVertPos[0], closestVertPos[1], closestVertPos[2], v, absolute=True, worldSpace=True)
+        # set normal
         cmds.polyNormalPerVertex(v, xyz=(closestVertNormal[0], closestVertNormal[1], closestVertNormal[2]))
 
-        #print closestVert
-        #cmds.select(closestVert, add=True)
+        referenceVertInfluences = cmds.skinPercent(bodySkinCluster, closestVert, query=True, transform=None, ignoreBelow=0.00001)
+
+        targetInfluences = cmds.skinCluster(genitaliaSkinCluster, query=True, influence=True)
+
+        targetTransformValues = []
+
+        for i in referenceVertInfluences:
+            if i not in targetInfluences:
+                cmds.skinCluster(genitaliaSkinCluster, e=True, addInfluence=i, weight=0.0)
+                #print i
+            referenceInfluenceValuePerVertex = cmds.skinPercent(bodySkinCluster, closestVert, query=True, transform=i, transformValue=True)
+            targetTransformValues.append((i, referenceInfluenceValuePerVertex))
+
+        #print targetTransformValues
+
+        # set weight
+        cmds.skinPercent(genitaliaSkinCluster, v, transformValue=targetTransformValues)
 
 
-    if cmds.objExists(newTorsoShape):
-        cmds.delete(newTorsoShape)
-
-    #replace material with original torso mat
-    torsoFaces = mayaUtils.GetFacesByMatsWildcard(genitaliaMesh, 'Torso*')
-    mayaUtils.AssignObjectListToShader(torsoFaces, 'Torso')
     cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
 
 def CutAndMoveUVForBodyPartsHiding(shape, mask, uOffset):
@@ -88,9 +100,6 @@ def CutMeshAndOffsetUVs():
 
 def RenameAndCombineMeshes():
     print 'RenameAndCombineMeshes()'
-    genitaliaMesh = mayaUtils.FindMeshByWildcard('HazardFemaleGenitalia*')
-    if genitaliaMesh:
-        cmds.rename(genitaliaMesh, 'FemaleGenitalia')
 
     #Main
     bodyList = cmds.ls('Genesis8FemaleFBX*Shape', type='transform', objectsOnly=True, long=True)
@@ -394,13 +403,6 @@ def OptimizeBodyMaterials():
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Legs')
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Arms')
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Face')
-
-    genitaliaMesh = mayaUtils.FindMeshByWildcard('HazardFemaleGenitalia*')
-    if genitaliaMesh:
-        mayaUtils.ArrangeUVByMat(genitaliaMesh, 'Torso', su=0.5, sv=0.5, u=0.5, v=0.5)
-        mayaUtils.AppendShadingGroupByMat(genitaliaMesh, 'Anus', 'Vagina')
-        mayaUtils.RenameMaterial('Anus', 'BodyGenitalia')
-        cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
 
     mayaUtils.RenameMaterial('Torso', 'Body')
     mayaUtils.RenameMaterial('HazardEyes', 'Eyes')

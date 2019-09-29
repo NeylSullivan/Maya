@@ -635,8 +635,14 @@ def DetachSkinnedMeshByMat(shape, matList, newMeshSuffix=''):
     return None
 
 def FindMeshByWildcard(wildcard, preferShapeWithMaxVertices=False, checkForMatWithName=None):
+    print 'FindMeshByWildcard(wildcard={0}, preferShapeWithMaxVertices={1}, checkForMatWithName={2})'.format(wildcard, preferShapeWithMaxVertices, checkForMatWithName)
     shapes = cmds.ls(wildcard, shapes=True, objectsOnly=True, long=False)
-    if shapes is None:
+    if not shapes: #wildcard can be exact transform name
+        transforms = cmds.ls(wildcard, transforms=True, objectsOnly=True, long=False) #try to find transforms with shapes
+        if transforms:
+            shapes = cmds.listRelatives(transforms, type='shape')
+
+    if not shapes:
         return None
     meshes = cmds.listRelatives(shapes, parent=True, type='transform')
 
@@ -645,6 +651,7 @@ def FindMeshByWildcard(wildcard, preferShapeWithMaxVertices=False, checkForMatWi
 
     if meshes:
         result = meshes[0] #if no special check, set (and return at end of function) first finded from list
+
 
     meshes = list(set(meshes)) #unique only
 
