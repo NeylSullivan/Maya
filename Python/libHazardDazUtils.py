@@ -123,6 +123,11 @@ def RenameAndCombineMeshes():
     else:
         print '\t No EYES meshes to combine'
 
+    #Main
+    eyelashesList = cmds.ls('HazardEyelashes_*Shape', type='transform', objectsOnly=True, long=True)
+    if eyelashesList:
+        cmds.rename(eyelashesList[0], 'FemaleEyelashes')
+
     #
     #MOUTH
     #
@@ -406,6 +411,8 @@ def OptimizeBodyMaterials():
 
     mayaUtils.RenameMaterial('Torso', 'Body')
     mayaUtils.RenameMaterial('HazardEyes', 'Eyes')
+
+    mayaUtils.RenameMaterial('EyeLashes*', 'FemaleEyeLashes')
 
     print 'Baking history'
     cmds.bakePartialHistory(shape, prePostDeformers=True)

@@ -8,6 +8,51 @@ import libHazardDazUtils as dazUtils
 reload(mayaUtils)
 reload(dazUtils)
 
+def OptimizeBodyMeshForBaking():
+    shape = cmds.ls(selection=True)
+
+    if not shape:
+        print 'Mesh not selected'
+        return
+    shape = shape[0]
+    print shape
+
+    allSets = cmds.listSets(object=shape, extendToShape=True)
+    renderingSets = cmds.listSets(object=shape, extendToShape=True, type=1)
+    print allSets
+    if allSets:
+        for s in allSets:
+            if s not in renderingSets:
+                cmds.delete(s)
+
+    unusedMatsList = ['*Mouth*', '*Teeth*', '*Pupils*', '*EyeMoisture*', '*Cornea*', '*Irises*', '*Sclera*']
+    for mat in unusedMatsList:
+        unusedFaces = mayaUtils.GetFacesByMatsWildcard(shape, mat)
+        if unusedFaces:
+            cmds.delete(unusedFaces)
+
+    mayaUtils.AppendShadingGroupByMatWildcard(shape, '*Face*', '*Lips*')
+    mayaUtils.AppendShadingGroupByMatWildcard(shape, '*Face*', '*Ears*')
+    mayaUtils.AppendShadingGroupByMatWildcard(shape, '*Face*', '*EyeSocket*')
+
+    mayaUtils.AppendShadingGroupByMatWildcard(shape, '*Legs*', '*Toenails*')
+    mayaUtils.AppendShadingGroupByMatWildcard(shape, '*Arms*', '*Fingernails*')
+
+
+    mayaUtils.ArrangeUVByMatWildcard(shape, '*Torso*', su=0.5, sv=0.5, u=0.5, v=0.5)
+    mayaUtils.ArrangeUVByMatWildcard(shape, '*Face*', su=0.5, sv=0.5, u=0.0, v=0.5)
+    mayaUtils.ArrangeUVByMatWildcard(shape, '*Legs*', su=0.5, sv=0.5, u=0.5, v=0.0)
+    mayaUtils.ArrangeUVByMatWildcard(shape, '*Arms*', su=0.5, sv=0.5, u=0.0, v=0.0)
+
+    mayaUtils.AppendShadingGroupByMatWildcard(shape, '*Torso*', '*Legs*')
+    mayaUtils.AppendShadingGroupByMatWildcard(shape, '*Torso*', '*Arms*')
+    mayaUtils.AppendShadingGroupByMatWildcard(shape, '*Torso*', '*Face*')
+
+
+    mayaUtils.RenameMaterial('*Torso*', 'Body')
+    mayaUtils.CleanUnusedMaterials()
+    mayaUtils.NotifyWithSound()
+
 #
 #   MAIN
 #

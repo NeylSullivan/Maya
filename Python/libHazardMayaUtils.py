@@ -219,11 +219,21 @@ def SetSkinMethodForAllSkinClusters(skinMethod):
     for s in skinList:
         cmds.skinCluster(s, e=True, skinMethod=skinMethod)
 
+def FindMatByWildcard(wildcard):
+    shaders = cmds.ls(type="lambert")
+    for mat in shaders:
+        if fnmatch.fnmatch(mat, wildcard):
+            return mat
+    print 'Can`t find material {0}'.format(wildcard)
+    return None
+
+#by wildcard. only first matched material renamed
 def RenameMaterial(originalName, newName):
     print 'Renaming material {0} to {1}'.format(originalName, newName)
     shaders = cmds.ls(type="lambert")
     for mat in shaders:
-        if mat == originalName:
+        #if mat == originalName:
+        if fnmatch.fnmatch(mat, originalName):
             cmds.rename(mat, newName)
             return
     print 'Can`t find material {0}'.format(originalName)
@@ -548,6 +558,11 @@ def GetFacesByMat(shape, mat):
 
         return filtered_faces
 
+def ArrangeUVByMatWildcard(shape, mat, su=1.0, sv=1.0, u=0.0, v=0.0):
+    newMat = FindMatByWildcard(mat)
+    if newMat:
+        ArrangeUVByMat(shape, newMat, su, sv, u, v)
+
 def ArrangeUVByMat(shape, mat, su=1.0, sv=1.0, u=0.0, v=0.0):
     print 'ArrangeUVByMat shape={0} mat={1} scale=[{2}, {3}], translate=[{4}, {5}]'.format(shape, mat, su, sv, u, v)
     faces = GetFacesByMat(shape, mat)
@@ -556,6 +571,13 @@ def ArrangeUVByMat(shape, mat, su=1.0, sv=1.0, u=0.0, v=0.0):
     cmds.polyEditUV(su=su, sv=sv)
     cmds.polyEditUV(u=u, v=v)
     cmds.select(clear=True)
+
+def AppendShadingGroupByMatWildcard(shape, matTo, matFrom):
+    matTo = FindMatByWildcard(matTo)
+    matFrom = FindMatByWildcard(matFrom)
+    if matTo and matFrom:
+        AppendShadingGroupByMat(shape, matTo, matFrom)
+
 
 def AppendShadingGroupByMat(shape, matTo, matFrom):
     targetShadingGroup = cmds.listConnections(matTo, type='shadingEngine')[0]
