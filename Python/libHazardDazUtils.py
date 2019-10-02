@@ -588,6 +588,44 @@ def FixNewJointsOrientation():
     cmds.select(clear=True)
     print 'Fixing joint orientation: Done'
 
+def AimJoint(joint, target):
+    constraint = cmds.aimConstraint(target, joint, worldUpType='vector', worldUpVector=[0, 0, 1])
+    print '\tAimJoint {0} to {1}'.format(joint, target)
+    cmds.delete(constraint)
+
+def FixNewJointsAiming(prefix='DAZ_'):
+    print 'FixNewJointsAiming'
+    AimJoint(prefix + 'Spine_1', prefix + 'Spine_2')
+    AimJoint(prefix + 'Spine_2', prefix + 'Spine_3')
+    AimJoint(prefix + 'Spine_3', prefix + 'Spine_4')
+    AimJoint(prefix + 'Spine_4', prefix + 'Neck_1')
+    AimJoint(prefix + 'Neck_1', prefix + 'Neck_2')
+    AimJoint(prefix + 'Neck_2', prefix + 'Head')
+
+    AimJoint(prefix + 'Clavicle_L', prefix + 'Arm_L')
+    AimJoint(prefix + 'Arm_L', prefix + 'ForeArm_L')
+    AimJoint(prefix + 'ForeArm_L', prefix + 'Hand_L')
+
+    AimJoint(prefix + 'Clavicle_R', prefix + 'Arm_R')
+    AimJoint(prefix + 'Arm_R', prefix + 'ForeArm_R')
+    AimJoint(prefix + 'ForeArm_R', prefix + 'Hand_R')
+
+    AimJoint(prefix + 'UpLeg_L', prefix + 'Leg_L')
+    AimJoint(prefix + 'Leg_L', 'Foot_L')
+    AimJoint(prefix + 'UpLeg_R', prefix + 'Leg_R')
+    AimJoint(prefix + 'Leg_R', prefix + 'Foot_R')
+
+def AlighnTwistJoints(prefix='DAZ_'):
+    print 'AlighnTwistJoints()'
+    twistJoints = cmds.ls(prefix + '*_TWIST', type='joint')
+    for j in twistJoints:
+        oldPos = cmds.joint(j, q=True, position=True, relative=True)
+        newPos = [oldPos[0], 0.0, 0.0]
+        print '\tAlighning joint {0} oldPos={1}, newPos ={2}'.format(j, oldPos, newPos)
+        cmds.joint(j, e=True, position=newPos, relative=True)
+        cmds.joint(j, e=True, orientation=[0.0, 0.0, 0.0])
+        cmds.xform(j, rotation=[0.0, 0.0, 0.0])
+
 
 def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
     print 'Recreating hierarchy'
@@ -612,7 +650,7 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
         #print newParentName
         cmds.parent(newName, newParentName)
 
-        print 'Parenting {0} to {1}'.format(newName, newParentName)
+        print '\tParenting {0} to {1}'.format(newName, newParentName)
 
     twistJoints = cmds.ls(newJointsPrefix+'*_TWIST')
     for j in twistJoints:
@@ -623,7 +661,7 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
                 print 'Reparenting twist joint {0} child {1} to {2}'.format(j, child, parent[0])
                 cmds.parent(child, parent[0])
 
-    #Remove unused bones if exists (for animation retarheting mode)
+    #Remove unused bones if exists (for animation retargeting mode)
     unusedList = ['pelvis', 'lMetatarsals', 'rMetatarsals']
     for j in unusedList:
         if cmds.objExists(newJointsPrefix + j): #still use prefix

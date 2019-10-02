@@ -13,27 +13,59 @@ reload(skelUtils)
 
 class DAZtoUE4_UI(object):
     def __init__(self):
-        if cmds.window("hazardDAZtoUE4", exists=True):
-            cmds.deleteUI("hazardDAZtoUE4")
-        self.win = cmds.window('hazardDAZtoUE4', title="DAZ to UE4 Tools", widthHeight=(200, 200))
 
-        cmds.columnLayout(rowSpacing=10, adjustableColumn=True)
-        cmds.frameLayout(label='Skeletal mesh')
+        self.WINDOW_NAME = 'hazardDAZtoUE4'
+        self.WINDOW_TITLE = "DAZ to UE4 Tools"
+        self.WINDOW_SIZE = (250, 400)
+
+        if cmds.window(self.WINDOW_NAME, exists=True):
+            cmds.deleteUI(self.WINDOW_NAME)
+        self.WINDOW_NAME = cmds.window(self.WINDOW_NAME, title=self.WINDOW_TITLE, widthHeight=self.WINDOW_SIZE, maximizeButton=False)
+
+        self.mainForm = cmds.formLayout(nd=100)
+
+        self.mainColumn = cmds.columnLayout(rowSpacing=10, adjustableColumn=True)
+
+        cmds.formLayout(self.mainForm, edit=True, attachForm=([self.mainColumn, 'left', 10], [self.mainColumn, 'right', 10], [self.mainColumn, 'top', 10]))
+
+        cmds.frameLayout(label='Skeletal mesh', collapsable=True, collapse=False, marginHeight=8, marginWidth=8)
         cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
         self.btnOptimizeSkeleton = cmds.button(label="Optimize Skeleton and Mesh", command=self.OptimizeSkeleton)
-        self.btnRetargetAnim = cmds.button(label="Create Skeleton and Retarget Anim", command=self.CreateOptimizedSkeletonOnlyAndRetargetAnim)
-        cmds.setParent('..')
-        cmds.setParent('..')
 
-        cmds.frameLayout(label='Joints Selection Utils')
+        cmds.frameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4)
         cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
-        cmds.button(label="Select Face Rig", command=self.SelectFaceRig)
-        cmds.button(label="Select Body Anim Relevant Joints", command=self.SelectBodyAnimRelevantJoints)
-        cmds.button(label="Select Joints for Selected Meshes", command=self.SelectJointsForSelectedMeshes)
+        self.btnRetargetAnim = cmds.button(label="Create Skeleton and Retarget Anim", command=self.CreateOptimizedSkeletonOnlyAndRetargetAnim)
+        self.chkbxFilterCurves = cmds.checkBox(label='Filter Curves', align='left', value=True)
         cmds.setParent('..')
         cmds.setParent('..')
 
-        cmds.showWindow(self.win)
+        cmds.setParent('..')
+        cmds.setParent('..')
+
+        cmds.frameLayout(label='Joints Selection Utils', collapsable=True, collapse=False, marginHeight=8, marginWidth=8)
+        cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
+        cmds.button(label="Select Face Rig", enableBackground=False, command=self.SelectFaceRig)
+        cmds.button(label="Select Body Anim Relevant Joints", command=self.SelectBodyAnimRelevantJoints)
+
+        cmds.frameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4)
+        cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
+        cmds.button(label="Select Joints for Selected Meshes", command=self.SelectJointsForSelectedMeshes)
+        self.chkbxKeepSelection = cmds.checkBox(label='Keep Selection', align='left', value=True)
+        self.chkbxIncludeIKjoints = cmds.checkBox(label='Include IK Joints', align='left', value=True)
+        cmds.setParent('..')
+        cmds.setParent('..')
+
+        cmds.setParent('..')
+        cmds.setParent('..')
+
+        cmds.frameLayout(label='Mesh optimization', collapsable=True, collapse=True, marginHeight=8, marginWidth=8)
+        cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
+        self.btnOptimizeMeshForBaking = cmds.button(label="Optimize Mesh for Baking", command=self.OptimizeMeshForBaking)
+        cmds.setParent('..')
+        cmds.setParent('..')
+
+        cmds.showWindow(self.WINDOW_NAME)
+        cmds.window(self.WINDOW_NAME, e=True, widthHeight=self.WINDOW_SIZE)
 
 
     def OptimizeSkeleton(self, _unused):
@@ -42,7 +74,8 @@ class DAZtoUE4_UI(object):
 
     def CreateOptimizedSkeletonOnlyAndRetargetAnim(self, _unused):
         reload(DAZtoUE4)
-        DAZtoUE4.CreateOptimizedSkeletonOnlyAndRetargetAnim()
+        filterCurves = cmds.checkBox(self.chkbxFilterCurves, query=True, value=True)
+        DAZtoUE4.CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=filterCurves)
 
     def SelectFaceRig(self, _unused):
         reload(skelUtils)
@@ -50,8 +83,15 @@ class DAZtoUE4_UI(object):
 
     def SelectBodyAnimRelevantJoints(self, _unused):
         reload(skelUtils)
-        #skelUtils.SelectJointsForSelectedMeshes()
+        raise NotImplementedError
 
     def SelectJointsForSelectedMeshes(self, _unused):
         reload(skelUtils)
-        skelUtils.SelectJointsForSelectedMeshes()
+        keepSelection = cmds.checkBox(self.chkbxKeepSelection, query=True, value=True)
+        #includeIKjoints = cmds.checkBox(self.chkbxIncludeIKjoints, query=True, value=True)
+
+        skelUtils.SelectJointsForSelectedMeshes(bKeepSelection=keepSelection)
+
+    def OptimizeMeshForBaking(self, _unused):
+        reload(DAZtoUE4)
+        DAZtoUE4.OptimizeBodyMeshForBaking()

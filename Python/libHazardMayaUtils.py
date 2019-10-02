@@ -303,7 +303,7 @@ def RenameJoint(oldName, newName):
     if cmds.objExists(oldName):
         if cmds.nodeType(oldName) == 'joint':
             cmds.rename(oldName, newName)
-            print 'RenameJoint: {0} to {1}'.format(oldName, newName)
+            print '\tRenameJoint: {0} to {1}'.format(oldName, newName)
         else:
             print 'RenameJoint: {0} is not joint. Aborting renaming to {1}!'.format(oldName, newName)
     else:
@@ -605,6 +605,16 @@ def GetShapeTransform(meshTransformOrShape):
     else:
         #probably shape
         return cmds.listRelatives(meshTransformOrShape, parent=True, type='transform')[0]
+
+def GetMultipleShapesTransforms(meshTransformOrShapesList):
+    if not meshTransformOrShapesList:
+        print 'WARNING: GetMultipleShapesTransforms() meshTransformOrShapesList is None'
+        return None
+    transformsSet = set()
+    for s in meshTransformOrShapesList:
+        transformsSet.add(GetShapeTransform(s))
+
+    return list(transformsSet)
 
 
 def DuplicateSkinnedMesh(shape, newMeshSuffix=''):

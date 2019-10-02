@@ -96,7 +96,7 @@ def GetMeshesJoints(meshes):
     return allJoints
 
 
-def SelectJointsForSelectedMeshes():
+def SelectJointsForSelectedMeshes(bKeepSelection=True):
     #cmds.select(clear=True)
 
     allSelected = cmds.ls(selection=True)
@@ -110,6 +110,10 @@ def SelectJointsForSelectedMeshes():
         if m in allMeshes:
             allSelectedMeshes.append(m)
 
-    jointsForSelected = GetMeshesJoints(allSelectedMeshes)
-    print jointsForSelected
-    cmds.select(jointsForSelected)
+    jointsForSelection = GetMeshesJoints(allSelectedMeshes)
+    print jointsForSelection
+
+    if bKeepSelection:
+        cmds.select(jointsForSelection, add=True)
+    else:
+        cmds.select(jointsForSelection)
