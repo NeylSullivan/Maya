@@ -97,8 +97,7 @@ def OptimizeSkeleton():
 
     cmds.select(clear=True)
 
-    dazUtils.AddBreastJoints() ################ TODO reallign to nipples?
-    dazUtils.AddNippleJoints() ################ TODO should be skinned?
+    dazUtils.AddBreastJoints() ################ should nipples need to be skinned?
 
     dazUtils.AddEndJoints()
     dazUtils.AddCameraJoint()

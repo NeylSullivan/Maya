@@ -181,6 +181,22 @@ def AddBreastJoints():
         cmds.select(j)
         cmds.joint(name=newJointName)
         cmds.xform(relative=True, translation=[3, 0, 0])
+
+    #Add Nipple Joints And Realighn Breast
+    shape = mayaUtils.FindShapeByMat('Torso')#temp shape for finding nipples coordinates
+    tempShape = cmds.duplicate(shape)[0]
+    tempShape = cmds.rename(tempShape, 'TEMP_TORSO')
+    mayaUtils.DeleteFacesByMat(tempShape, ['Torso'], bInvert=True)
+    cmds.bakePartialHistory(tempShape, preCache=True)
+
+    AddNippleJointAndRealighnBreast('Nipple_L', 'Pectoral_L_JIGGLE', [0.5732300281524658, 0.5203400254249573], tempShape)
+    AddNippleJointAndRealighnBreast('Nipple_R', 'Pectoral_R_JIGGLE', [0.4267699718475342, 0.5203400254249573], tempShape)
+
+    cmds.delete(tempShape)
+
+    #transfer weights to new jiggle joints
+    for j in srcJointslist:
+        newJointName = j + '_JIGGLE'
         skinList = cmds.ls(type='skinCluster')
         for skinClusterName in skinList:
             cmds.select(clear=True)
@@ -190,28 +206,23 @@ def AddBreastJoints():
                 continue
         mayaUtils.TransferJointWeights(j, newJointName)
 
-def AddNippleJoints():
-    shape = mayaUtils.FindShapeByMat('Torso')
-    newShape = cmds.duplicate(shape)[0]
-    newShape = cmds.rename(newShape, 'TEMP_TORSO')
-    mayaUtils.DeleteFacesByMat(newShape, ['Torso'], bInvert=True)
-    cmds.bakePartialHistory(newShape, preCache=True)
 
-    AddNippleJoint('Nipple_L', 'Pectoral_L_JIGGLE', [0.5732300281524658, 0.5203400254249573], newShape)
-    AddNippleJoint('Nipple_R', 'Pectoral_R_JIGGLE', [0.4267699718475342, 0.5203400254249573], newShape)
-
-    cmds.delete(newShape)
-
-
-def AddNippleJoint(newJointName, parentName, uvPos, referenceShape):
+def AddNippleJointAndRealighnBreast(newJointName, parentName, uvPos, referenceShape):
     cmds.select(clear=True)
     cmds.select(parentName)
-    newJointName = cmds.joint(name=newJointName)
+    newJointName = cmds.joint(name=newJointName) #not final nipple joint!
 
     f = mayaUtils.UvCoordToWorld(uvPos[0], uvPos[1], referenceShape)
-    print [f[0], f[1], f[2]]
+    print 'AddNippleJointAndRealighnBreast(): {0} position is {1}'.format(newJointName, f)
     cmds.move(f[0], f[1], f[2], newJointName, absolute=True)
+    cmds.parent(newJointName, world=True)
+    constraint = cmds.aimConstraint(newJointName, parentName, worldUpType='vector', worldUpVector=[0, 1, 0])
+    cmds.delete(constraint)
+    cmds.delete(newJointName) #delete temp nipple joint
 
+    cmds.select(parentName) #again
+    newJointName = cmds.joint(name=newJointName) #create new joint, properly aligned with parent
+    cmds.move(f[0], f[1], f[2], newJointName, absolute=True)
 
 def AddEndJoints():
     cmds.select(clear=True)
