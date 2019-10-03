@@ -16,7 +16,7 @@ class DAZtoUE4_UI(object):
 
         self.WINDOW_NAME = 'hazardDAZtoUE4'
         self.WINDOW_TITLE = "DAZ to UE4 Tools"
-        self.WINDOW_SIZE = (250, 400)
+        self.WINDOW_SIZE = (260, 400)
 
         if cmds.window(self.WINDOW_NAME, exists=True):
             cmds.deleteUI(self.WINDOW_NAME)
@@ -51,6 +51,7 @@ class DAZtoUE4_UI(object):
         cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
         cmds.button(label="Select Joints for Selected Meshes", command=self.SelectJointsForSelectedMeshes)
         self.chkbxKeepSelection = cmds.checkBox(label='Keep Selection', align='left', value=True)
+        self.chkbxIncludeSpecialJoints = cmds.checkBox(label='Include Special Joints', align='left', value=True)
         self.chkbxIncludeIKjoints = cmds.checkBox(label='Include IK Joints', align='left', value=True)
         cmds.setParent('..')
         cmds.setParent('..')
@@ -83,14 +84,15 @@ class DAZtoUE4_UI(object):
 
     def SelectBodyAnimRelevantJoints(self, _unused):
         reload(skelUtils)
-        raise NotImplementedError
+        skelUtils.SelectBodyAnimRelevantJoints()
 
     def SelectJointsForSelectedMeshes(self, _unused):
         reload(skelUtils)
         keepSelection = cmds.checkBox(self.chkbxKeepSelection, query=True, value=True)
-        #includeIKjoints = cmds.checkBox(self.chkbxIncludeIKjoints, query=True, value=True)
+        includeSpecialJoints = cmds.checkBox(self.chkbxIncludeSpecialJoints, query=True, value=True)
+        includeIKjoints = cmds.checkBox(self.chkbxIncludeIKjoints, query=True, value=True)
 
-        skelUtils.SelectJointsForSelectedMeshes(bKeepSelection=keepSelection)
+        skelUtils.SelectJointsForSelectedMeshes(bKeepSelection=keepSelection, bIncludeSpecialJoints=includeSpecialJoints, bIncludeIKJoints=includeIKjoints)
 
     def OptimizeMeshForBaking(self, _unused):
         reload(DAZtoUE4)

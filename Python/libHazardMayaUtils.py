@@ -282,7 +282,7 @@ def GetMeshFromSkinCluster(skinClusterName):
 def GetHierarchy(rootJoint):
     root = cmds.ls(rootJoint, type="joint")
     if len(root) == 1:
-        allHierarchy = cmds.listRelatives(root[0], allDescendents=True)
+        allHierarchy = cmds.listRelatives(root[0], allDescendents=True, type="joint")
         allHierarchy.append(root[0])
         return allHierarchy
     else:

@@ -438,24 +438,35 @@ def OptimizeBodyMaterials():
 
 
 def CreateIkJoints():
-    CreateIkJoint('FK_CAMERA_SOCKET', 'Root', 'IK_CAMERA')
+    CreateIkJoint('FK_CAMERA_SOCKET', 'Root', 'IK_CAMERA', bCreateConstraint=True)
     CreateIkJoint('Root', 'Root', 'IK_Foot_Root')
-    CreateIkJoint('Foot_R', 'IK_Foot_Root', 'IK_Foot_R')
-    CreateIkJoint('Foot_L', 'IK_Foot_Root', 'IK_Foot_L')
+    CreateIkJoint('Foot_R', 'IK_Foot_Root', 'IK_Foot_R', bCreateConstraint=True)
+    CreateIkJoint('Foot_L', 'IK_Foot_Root', 'IK_Foot_L', bCreateConstraint=True)
 
     CreateIkJoint('Root', 'Root', 'IK_Hands_Root')
-    CreateIkJoint('Hand_R', 'IK_Hands_Root', 'IK_Weapon_Root')
-    CreateIkJoint('Hand_R', 'IK_Weapon_Root', 'IK_Hand_R')
-    CreateIkJoint('Hand_L', 'IK_Weapon_Root', 'IK_Hand_L')
+    CreateIkJoint('Hand_R', 'IK_Hands_Root', 'IK_Weapon_Root', bCreateConstraint=True)
+    CreateIkJoint('Hand_R', 'IK_Weapon_Root', 'IK_Hand_R', bCreateConstraint=True)
+    CreateIkJoint('Hand_L', 'IK_Weapon_Root', 'IK_Hand_L', bCreateConstraint=True)
+
+    CreateIkJoint('Hips', 'Root', 'IK_Hips', bCreateConstraint=True)
 
 
-def CreateIkJoint(referenceJnt, parentJnt, ikJntName):
+def CreateIkJoint(referenceJnt, parentJnt, ikJntName, bCreateConstraint=False):
     cmds.select(clear=True)
     print 'Created IK joint "{0}" corresponding to "{1}" parented to "{2}"'.format(ikJntName, referenceJnt, parentJnt)
+    if not cmds.objExists(referenceJnt):
+        print 'Reference joint not found. Aborting'
+        return
+    if not cmds.objExists(parentJnt):
+        print 'Parent joint not found. Aborting'
+        return
     cmds.select(referenceJnt)
     cmds.joint(name=ikJntName)
     if not parentJnt == referenceJnt:
         cmds.parent(ikJntName, parentJnt)
+
+    if bCreateConstraint:
+        cmds.parentConstraint(referenceJnt, ikJntName)
 
 
 

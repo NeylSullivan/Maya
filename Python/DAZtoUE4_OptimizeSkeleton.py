@@ -97,7 +97,7 @@ def OptimizeSkeleton():
 
     cmds.select(clear=True)
 
-    dazUtils.AddBreastJoints() ################ should nipples need to be skinned?
+    dazUtils.AddBreastJoints() ################ should nipples need to be skinnedor it just point for ue4 sockets?
 
     dazUtils.AddEndJoints()
     dazUtils.AddCameraJoint()
@@ -131,13 +131,25 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
     print 'Starting skeleton optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
-    cmds.select(all=True)
+
+    dazUtils.RemoveObjectsByWildcard(['Fingernails_*'], 'transform')
+    dazUtils.RemoveObjectsByWildcard(['HazardFemaleGenitalia_*Shape'], 'transform')
+
+    mayaUtils.ParentAllGeometryToWorld()
+
+    primaryMesh = mayaUtils.FindMeshByWildcard('Genesis8*', preferShapeWithMaxVertices=True, checkForMatWithName='Torso')
+
+    if primaryMesh:
+        cmds.select(primaryMesh)
+    else:
+        cmds.select(all=True)
+
     mel.eval('gotoBindPose')
     cmds.select(clear=True)
 
-    dazUtils.RemoveObjectsByWildcard(['Fingernails_*'], 'transform')
 
-    mayaUtils.ParentAllGeometryToWorld()
+
+
     #delete all meshes
     shapesToDelete = mayaUtils.GetMultipleShapesTransforms(cmds.ls(geometry=True, objectsOnly=True))
     if shapesToDelete:
@@ -169,6 +181,7 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
 
     dazUtils.RenameNewSkeleton() #remove DAZ_ prefix
 
+
     cmds.select(clear=True)
     #create constraint from old skeleton to new
     print 'Creating constraints'
@@ -179,6 +192,10 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
         print '\tCreating parentConstraint from {0} to {1}'.format(oldJoint, j)
         cmds.parentConstraint(oldJoint, j, maintainOffset=True)
 
+    dazUtils.AddCameraJoint()
+    dazUtils.CreateIkJoints() #create AFTER constarining new skeleton to old
+
+    #newJoints = mayaUtils.GetHierarchy('Root') #with ik joints
 
     print'\n'
     print "\t\t******** BAKING ANIMATION ********"

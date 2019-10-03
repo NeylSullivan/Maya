@@ -68,6 +68,21 @@ def SelectFaceRig():
     cmds.select(clear=True)
     cmds.select(GetFaceRig())
 
+def UpdateListWithAllThemParents(inOutJointsList):
+    jointsUnique = list(set(inOutJointsList))
+    allParentsSet = set()
+    for j in jointsUnique:
+        parents = GetAllParentsOfJoint(j)
+        allParentsSet.update(parents)
+
+    allParentsSet.update(jointsUnique)
+
+    #inOutJointsList.clear()
+    #python 2.x list has no clear() so use this instead
+    del inOutJointsList [:]
+    inOutJointsList.extend(list(allParentsSet))
+
+
 def GetMeshesJoints(meshes):
     allJoints = []
 
@@ -81,24 +96,60 @@ def GetMeshesJoints(meshes):
 
     allJoints = list(set(allJoints))
 
-    allParentsSet = set()
-
-    for j in allJoints:
-        parents = GetAllParentsOfJoint(j)
-        allParentsSet.update(parents)
-
-    allParentsSet.update(allJoints)
-
-    allJoints = list(allParentsSet)
-
-    RemoveJointsFromListByWildCard(allJoints, '*_END') # END joints not skinned but to be sure...
+    UpdateListWithAllThemParents(allJoints)
+    RemoveJointsFromListByWildCard(allJoints, '*_END') # END joints not skinned but to be sure... they never should be exported to ue4
 
     return allJoints
 
+def GetSpecialJoints():
+    specialJoints = []
 
-def SelectJointsForSelectedMeshes(bKeepSelection=True):
-    #cmds.select(clear=True)
+    sockets = cmds.ls('*_SOCKET', type='joint')
+    if sockets:
+        specialJoints.extend(sockets)
 
+    nipples = cmds.ls('Nipple_?', type='joint')
+    if nipples:
+        specialJoints.extend(nipples)
+
+    jiggles = cmds.ls('*_JIGGLE', type='joint')
+    if jiggles:
+        specialJoints.extend(jiggles)
+
+    eyes = cmds.ls('Eye_?', type='joint')
+    if eyes:
+        specialJoints.extend(eyes)
+
+    UpdateListWithAllThemParents(specialJoints)
+    print specialJoints
+    return specialJoints
+
+def GetIKJoints(sourceJointsList):
+    ikJoints = []
+
+    for j in sourceJointsList:
+        constraints = list(set(cmds.listConnections(j, type='parentConstraint') or []))
+        if not constraints:
+            continue
+        #print j
+        #print constraints
+        for c in constraints:
+            objects = list(set(cmds.listConnections(c, source=False, destination=True, exactType=True, type='joint') or []))
+            if not objects:
+                continue
+            #print objects
+            for o in objects:
+                ikJoints.append(o)
+                #print cmds.nodeType(o)
+
+
+    ikJoints = fnmatch.filter(ikJoints, 'IK_*')
+    UpdateListWithAllThemParents(ikJoints)
+
+    return ikJoints
+
+
+def SelectJointsForSelectedMeshes(bKeepSelection=True, bIncludeSpecialJoints=True, bIncludeIKJoints=True):
     allSelected = cmds.ls(selection=True)
 
     allShapes = cmds.ls(geometry=True)
@@ -111,9 +162,38 @@ def SelectJointsForSelectedMeshes(bKeepSelection=True):
             allSelectedMeshes.append(m)
 
     jointsForSelection = GetMeshesJoints(allSelectedMeshes)
-    print jointsForSelection
 
     if bKeepSelection:
         cmds.select(jointsForSelection, add=True)
     else:
         cmds.select(jointsForSelection)
+
+    if bIncludeSpecialJoints:
+        jointsForSelection.extend(GetSpecialJoints())
+        jointsForSelection = list(set(jointsForSelection))
+        cmds.select(jointsForSelection, add=True)
+
+    if bIncludeIKJoints:
+        #print 'bIncludeIKJoints = {0}'.format(bIncludeIKJoints)
+        jointsForSelection.extend(GetIKJoints(jointsForSelection))
+        jointsForSelection = list(set(jointsForSelection))
+        cmds.select(jointsForSelection, add=True)
+
+def SelectBodyAnimRelevantJoints():
+    jointsToSelect = mayaUtils.GetHierarchy('Root')
+    RemoveJointsFromListByWildCard(jointsToSelect, '*_END')
+    RemoveJointsFromListByWildCard(jointsToSelect, '*_TWIST')
+    RemoveJointsFromListByWildCard(jointsToSelect, '*_BEND')
+    RemoveJointsFromListByWildCard(jointsToSelect, '*_JIGGLE')
+    RemoveJointsFromListByWildCard(jointsToSelect, 'Nipple_?')
+
+    if 'Head' in jointsToSelect:
+        headChildren = cmds.listRelatives('Head', allDescendents=True, type="joint")
+        if headChildren:
+            for j in headChildren:
+                if not fnmatch.fnmatch(j, '*_SOCKET'): #keep sockets
+                    RemoveJointFromList(jointsToSelect, j)
+
+    jointsToSelect = list(set(jointsToSelect))
+    UpdateListWithAllThemParents(jointsToSelect)
+    cmds.select(jointsToSelect)
