@@ -62,7 +62,7 @@ def OptimizeBodyMeshForBaking():
 #
 #   MAIN
 #
-def OptimizeSkeleton():
+def OptimizeSkeleton(pbCollapseToes=False):
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -73,12 +73,13 @@ def OptimizeSkeleton():
     dazUtils.RemoveObjectsByWildcard(['Fingernails_*'], 'transform')
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
-    mayaUtils.DestroyUnusedJoints()
+    mayaUtils.DestroyUnusedJoints(pbCollapseToes)
     mayaUtils.ParentAllGeometryToWorld()
     mayaUtils.ResetBindPoseForAllSkinClusters()
     mayaUtils.SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
     dazUtils.RenameSkeletonJoints()
     oldJoints = mayaUtils.GetHierarchy('Root')
+
 
     # collect data for skin export
     skinData = mayaUtils.GetSkinExportData()  # transform, shape, skincluster, jointsList
@@ -147,9 +148,6 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
     mel.eval('gotoBindPose')
     cmds.select(clear=True)
 
-
-
-
     #delete all meshes
     shapesToDelete = mayaUtils.GetMultipleShapesTransforms(cmds.ls(geometry=True, objectsOnly=True))
     if shapesToDelete:
@@ -157,7 +155,6 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
             cmds.delete(s)
             print 'Deleting {0}'.format(s)
 
-    mayaUtils.SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
     dazUtils.RenameSkeletonJoints()
     oldJoints = mayaUtils.GetHierarchy('Root')
 
@@ -167,7 +164,7 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
     dazUtils.RecreateHierarchy('Root', 'DAZ_')
     dazUtils.AlighnTwistJoints()
 
-    #delete twist joints for animation retargetting/ they are procedurraly animated in engine
+    #delete twist joints for animation retargetting/ they are procedurally animated in engine
     unusedJoints = cmds.ls('DAZ_*_TWIST')
     for j in unusedJoints:
         cmds.delete(j)
@@ -181,7 +178,6 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
 
     dazUtils.RenameNewSkeleton() #remove DAZ_ prefix
 
-
     cmds.select(clear=True)
     #create constraint from old skeleton to new
     print 'Creating constraints'
@@ -193,9 +189,9 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
         cmds.parentConstraint(oldJoint, j, maintainOffset=True)
 
     dazUtils.AddCameraJoint()
-    dazUtils.CreateIkJoints() #create AFTER constarining new skeleton to old
+    dazUtils.CreateIkJoints() #create AFTER constraining new skeleton to old
 
-    #newJoints = mayaUtils.GetHierarchy('Root') #with ik joints
+    # No need to bake IK joints, they are auto baked during exporting to fbx
 
     print'\n'
     print "\t\t******** BAKING ANIMATION ********"

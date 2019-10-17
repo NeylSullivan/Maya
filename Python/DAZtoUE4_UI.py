@@ -1,14 +1,15 @@
 import maya.cmds as cmds
-#import maya.mel as mel
 import DAZtoUE4_OptimizeSkeleton as DAZtoUE4
 import libHazardMayaUtils as mayaUtils
 import libHazardDazUtils as dazUtils
 import libHazardSkeletonSelectionUtils as skelUtils
+import libHazardMayaUIExtension as uiExt
 
 reload(DAZtoUE4)
 reload(mayaUtils)
 reload(dazUtils)
 reload(skelUtils)
+reload(uiExt)
 
 
 class DAZtoUE4_UI(object):
@@ -28,42 +29,33 @@ class DAZtoUE4_UI(object):
 
         cmds.formLayout(self.mainForm, edit=True, attachForm=([self.mainColumn, 'left', 10], [self.mainColumn, 'right', 10], [self.mainColumn, 'top', 10]))
 
-        cmds.frameLayout(label='Skeletal mesh', collapsable=True, collapse=False, marginHeight=8, marginWidth=8)
-        cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
-        self.btnOptimizeSkeleton = cmds.button(label="Optimize Skeleton and Mesh", command=self.OptimizeSkeleton)
+        with uiExt.FrameLayout(label='Skeletal mesh', collapsable=True, collapse=False, marginHeight=8, marginWidth=8):
+            with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
+                with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
+                    self.btnOptimizeSkeleton = cmds.button(label="Optimize Skeleton and Mesh", command=self.OptimizeSkeleton)
+                    self.chkbxCollapseToes = cmds.checkBox(label='Collapse Toes', align='left', value=False)
 
-        cmds.frameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4)
-        cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
-        self.btnRetargetAnim = cmds.button(label="Create Skeleton and Retarget Anim", command=self.CreateOptimizedSkeletonOnlyAndRetargetAnim)
-        self.chkbxFilterCurves = cmds.checkBox(label='Filter Curves', align='left', value=True)
-        cmds.setParent('..')
-        cmds.setParent('..')
+            with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
+                with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
+                    self.btnRetargetAnim = cmds.button(label="Create Skeleton and Retarget Anim", command=self.CreateOptimizedSkeletonOnlyAndRetargetAnim)
+                    self.chkbxFilterCurves = cmds.checkBox(label='Filter Curves', align='left', value=True)
 
-        cmds.setParent('..')
-        cmds.setParent('..')
 
-        cmds.frameLayout(label='Joints Selection Utils', collapsable=True, collapse=False, marginHeight=8, marginWidth=8)
-        cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
-        cmds.button(label="Select Face Rig", enableBackground=False, command=self.SelectFaceRig)
-        cmds.button(label="Select Body Anim Relevant Joints", command=self.SelectBodyAnimRelevantJoints)
+        with uiExt.FrameLayout(label='Joints Selection Utils', collapsable=True, collapse=False, marginHeight=8, marginWidth=8):
+            with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
+                cmds.button(label="Select Face Rig", enableBackground=False, command=self.SelectFaceRig)
+                cmds.button(label="Select Body Anim Relevant Joints", command=self.SelectBodyAnimRelevantJoints)
 
-        cmds.frameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4)
-        cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
-        cmds.button(label="Select Joints for Selected Meshes", command=self.SelectJointsForSelectedMeshes)
-        self.chkbxKeepSelection = cmds.checkBox(label='Keep Selection', align='left', value=True)
-        self.chkbxIncludeSpecialJoints = cmds.checkBox(label='Include Special Joints', align='left', value=True)
-        self.chkbxIncludeIKjoints = cmds.checkBox(label='Include IK Joints', align='left', value=True)
-        cmds.setParent('..')
-        cmds.setParent('..')
+                with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
+                    with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
+                        cmds.button(label="Select Joints for Selected Meshes", command=self.SelectJointsForSelectedMeshes)
+                        self.chkbxKeepSelection = cmds.checkBox(label='Keep Selection', align='left', value=True)
+                        self.chkbxIncludeSpecialJoints = cmds.checkBox(label='Include Special Joints', align='left', value=True)
+                        self.chkbxIncludeIKjoints = cmds.checkBox(label='Include IK Joints', align='left', value=True)
 
-        cmds.setParent('..')
-        cmds.setParent('..')
-
-        cmds.frameLayout(label='Mesh optimization', collapsable=True, collapse=True, marginHeight=8, marginWidth=8)
-        cmds.columnLayout(rowSpacing=5, adjustableColumn=True)
-        self.btnOptimizeMeshForBaking = cmds.button(label="Optimize Mesh for Baking", command=self.OptimizeMeshForBaking)
-        cmds.setParent('..')
-        cmds.setParent('..')
+        with uiExt.FrameLayout(label='Mesh optimization', collapsable=True, collapse=True, marginHeight=8, marginWidth=8):
+            with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
+                self.btnOptimizeMeshForBaking = cmds.button(label="Optimize Mesh for Baking", command=self.OptimizeMeshForBaking)
 
         cmds.showWindow(self.WINDOW_NAME)
         cmds.window(self.WINDOW_NAME, e=True, widthHeight=self.WINDOW_SIZE)
@@ -71,7 +63,8 @@ class DAZtoUE4_UI(object):
 
     def OptimizeSkeleton(self, _unused):
         reload(DAZtoUE4)
-        DAZtoUE4.OptimizeSkeleton()
+        collapseToes = cmds.checkBox(self.chkbxCollapseToes, query=True, value=True)
+        DAZtoUE4.OptimizeSkeleton(collapseToes)
 
     def CreateOptimizedSkeletonOnlyAndRetargetAnim(self, _unused):
         reload(DAZtoUE4)

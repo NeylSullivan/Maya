@@ -226,9 +226,14 @@ def AddNippleJointAndRealighnBreast(newJointName, parentName, uvPos, referenceSh
 
 def AddEndJoints():
     cmds.select(clear=True)
-    srcJoints = ['HandThumb3_L', 'HandIndex3_L', 'HandMid3_L', 'HandRing3_L', 'HandPinky3_L']
-    srcJoints.extend(['HandThumb3_R', 'HandIndex3_R', 'HandMid3_R', 'HandRing3_R', 'HandPinky3_R'])
+    srcJoints = []
+
+    for joint in ['HandThumb3', 'HandIndex3', 'HandMid3', 'HandRing3', 'HandPinky3', 'ToeBig2', 'ToeIndex2', 'ToeMid2', 'ToeRing2', 'ToePinky2']:
+        for sideSuffix in ['_L', '_R']:
+            srcJoints.append(joint + sideSuffix)
+
     srcJoints.append('Tongue_4')
+
 
     for j in srcJoints:
         newJointName = j + '_END'
@@ -247,10 +252,11 @@ def AddCameraJoint():
     EyesPos[2] = 0.0
 
     cmds.select('Head')
-    cmds.joint(name='FK_CAMERA_SOCKET')
+    cmds.joint(name='Camera')
     cmds.xform(worldSpace=True, translation=EyesPos)
+    cmds.xform(worldSpace=True, rotation=[0, -90, -90])
 
-    print 'Created camera joint FK_CAMERA_SOCKET with world pos {0}'.format(EyesPos)
+    print 'Created camera joint with world pos {0}'.format(EyesPos)
 
 def GetRenamingDict():
     dictionary = {
@@ -348,6 +354,29 @@ def GetRenamingDict():
         #rename'rMetatarsals': 'Metatarsals_R',
         'rToe': 'Toe_R',
 
+        # Toes
+        'lBigToe' : 'ToeBig1_L',
+        'lBigToe_2' : 'ToeBig2_L',
+        'lSmallToe1' : 'ToeIndex1_L',
+        'lSmallToe1_2' : 'ToeIndex2_L',
+        'lSmallToe2' : 'ToeMid1_L',
+        'lSmallToe2_2' : 'ToeMid2_L',
+        'lSmallToe3' : 'ToeRing1_L',
+        'lSmallToe3_2' : 'ToeRing2_L',
+        'lSmallToe4' : 'ToePinky1_L',
+        'lSmallToe4_2' : 'ToePinky2_L',
+
+        'rBigToe' : 'ToeBig1_R',
+        'rBigToe_2' : 'ToeBig2_R',
+        'rSmallToe1' : 'ToeIndex1_R',
+        'rSmallToe1_2' : 'ToeIndex2_R',
+        'rSmallToe2' : 'ToeMid1_R',
+        'rSmallToe2_2' : 'ToeMid2_R',
+        'rSmallToe3' : 'ToeRing1_R',
+        'rSmallToe3_2' : 'ToeRing2_R',
+        'rSmallToe4' : 'ToePinky1_R',
+        'rSmallToe4_2' : 'ToePinky2_R',
+
         # Face
         'lEye': 'Eye_L',
         'rEye': 'Eye_R',
@@ -438,7 +467,7 @@ def OptimizeBodyMaterials():
 
 
 def CreateIkJoints():
-    CreateIkJoint('FK_CAMERA_SOCKET', 'Root', 'IK_CAMERA', bCreateConstraint=True)
+    CreateIkJoint('Camera', 'Root', 'IK_Camera', bCreateConstraint=True)
     CreateIkJoint('Root', 'Root', 'IK_Foot_Root')
     CreateIkJoint('Foot_R', 'IK_Foot_Root', 'IK_Foot_R', bCreateConstraint=True)
     CreateIkJoint('Foot_L', 'IK_Foot_Root', 'IK_Foot_L', bCreateConstraint=True)
@@ -593,19 +622,28 @@ def FixNewJointsOrientation():
     mayaUtils.RotateJoint('DAZ_HandPinky2_R', -90, 180)
     mayaUtils.RotateJoint('DAZ_HandPinky3_R', -90, 180)
 
+    #Toes
+    for t in ['ToeBig1', 'ToeBig2', 'ToeIndex1', 'ToeIndex2', 'ToeMid1', 'ToeMid2', 'ToeRing1', 'ToeRing2', 'ToePinky1', 'ToePinky2']:
+        mayaUtils.RotateJoint('DAZ_'+t+'_L', 0, -90)
+        mayaUtils.RotateJoint('DAZ_'+t+'_R', 0, -90)
+
+
     # facial rig
     mayaUtils.RotateJoint("DAZ_Tongue_1", 0, -90, 0)
     mayaUtils.RotateJoint("DAZ_Tongue_2", 0, -90, 0)
     mayaUtils.RotateJoint("DAZ_Tongue_3", 0, -90, 0)
     mayaUtils.RotateJoint("DAZ_Tongue_4", 0, -90, 0)
 
-    # selecting original joints
+    mayaUtils.RotateJoint("DAZ_Eye_L", 0, -90, 180)
+    mayaUtils.RotateJoint("DAZ_Eye_R", 0, -90, 180)
+
+    # selecting original joints of face rig
     children = cmds.listRelatives('Head', allDescendents=True)
 
     for child in children:
-        if child.startswith('Tongue_'):
+        if child in ['Eye_L', 'Eye_R'] or child.startswith('Tongue_'):
             continue  # skip already rotated
-        mayaUtils.RotateJoint('DAZ_' + child, 90, 0, 90)  # but rotating skeleton copy
+        mayaUtils.RotateJoint('DAZ_' + child, 0, -90, 0)  # but rotating skeleton copy
 
     cmds.select(clear=True)
     print 'Fixing joint orientation: Done'
@@ -614,6 +652,22 @@ def AimJoint(joint, target):
     constraint = cmds.aimConstraint(target, joint, worldUpType='vector', worldUpVector=[0, 0, 1])
     print '\tAimJoint {0} to {1}'.format(joint, target)
     cmds.delete(constraint)
+
+# Custom aiming for foot joints (aim Y, keep X)
+def AimFootJoint(footJoint, toeTarget):
+    footPos = cmds.xform(footJoint, t=True, ws=True, q=True)
+    toePos = cmds.xform(toeTarget, t=True, ws=True, q=True)
+
+    locatorPos = toePos
+    locatorPos[1] = footPos[1] # Set Y from foot
+
+    locator = cmds.spaceLocator()
+    cmds.xform(locator, ws=True, translation=locatorPos)
+
+    constraint = cmds.aimConstraint(locator, footJoint, aimVector=[0, 1, 0], worldUpType='Vector', upVector=[1, 0, 0], worldUpVector=[0, -1, 0], skip='y')
+    cmds.delete(constraint)
+    cmds.delete(locator)
+
 
 def FixNewJointsAiming(prefix='DAZ_'):
     print 'FixNewJointsAiming'
@@ -636,6 +690,13 @@ def FixNewJointsAiming(prefix='DAZ_'):
     AimJoint(prefix + 'Leg_L', 'Foot_L')
     AimJoint(prefix + 'UpLeg_R', prefix + 'Leg_R')
     AimJoint(prefix + 'Leg_R', prefix + 'Foot_R')
+
+    AimFootJoint(prefix + 'Foot_L', prefix + 'Toe_L')
+    AimFootJoint(prefix + 'Foot_R', prefix + 'Toe_R')
+
+
+
+
 
 def AlighnTwistJoints(prefix='DAZ_'):
     print 'AlighnTwistJoints()'
@@ -690,13 +751,13 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
             cmds.delete(newJointsPrefix + j)
             print 'Deleting joint {0}'.format(newJointsPrefix + j)
 
-    orphanParentsList = ['Toe_L', 'Toe_R']
-    for j in orphanParentsList:
-        if cmds.objExists(newJointsPrefix + j): #still use prefix
-            childrenList = cmds.listRelatives(newJointsPrefix + j, allDescendents=True) or []
-            for c in childrenList:
-                cmds.delete(c)
-                print 'Deleting {0} - child joint of {1} '.format(c, newJointsPrefix + j)
+    # orphanParentsList = ['Toe_L', 'Toe_R']
+    # for j in orphanParentsList:
+    #     if cmds.objExists(newJointsPrefix + j): #still use prefix
+    #         childrenList = cmds.listRelatives(newJointsPrefix + j, allDescendents=True) or []
+    #         for c in childrenList:
+    #             cmds.delete(c)
+    #             print 'Deleting {0} - child joint of {1} '.format(c, newJointsPrefix + j)
 
 
 def SetJointsVisualProperties():

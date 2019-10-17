@@ -445,12 +445,13 @@ def DestroyJointChildren(jointName):
     print 'DestroyJointChildren: Done'
 
 
-def DestroyUnusedJoints():
+def DestroyUnusedJoints(pbDestroyToes):
     DestroyMiddleJoint('lMetatarsals')
     DestroyMiddleJoint('rMetatarsals')
     DestroyMiddleJoint('pelvis')
-    DestroyJointChildren('lToe')
-    DestroyJointChildren('rToe')
+    if pbDestroyToes:
+        DestroyJointChildren('lToe')
+        DestroyJointChildren('rToe')
 
 def CleanUnusedInfluenses(skinCluster):
     cmds.select(clear=True)
