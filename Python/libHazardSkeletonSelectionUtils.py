@@ -104,7 +104,7 @@ def GetMeshesJoints(meshes):
 def GetSpecialJoints():
     specialJoints = []
 
-    sockets = cmds.ls('*_SOCKET', type='joint')
+    sockets = cmds.ls('Camera', type='joint')
     if sockets:
         specialJoints.extend(sockets)
 
@@ -191,7 +191,7 @@ def SelectBodyAnimRelevantJoints():
         headChildren = cmds.listRelatives('Head', allDescendents=True, type="joint")
         if headChildren:
             for j in headChildren:
-                if not fnmatch.fnmatch(j, '*_SOCKET'): #keep sockets
+                if not j == 'Camera': #keep camera socket
                     RemoveJointFromList(jointsToSelect, j)
 
     jointsToSelect = list(set(jointsToSelect))

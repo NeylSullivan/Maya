@@ -80,8 +80,18 @@ def CutAndMoveUVForBodyPartsHiding(shape, mask, uOffset):
     cmds.select(clear=True)
     print 'CutAndMoveUVForBodyPartsHiding shape{0}, mask "{1}", uOffset {2}'.format(shape, mask, uOffset)
     matched_faces = selUtils.GetFacesByBitmapMask(shape, mask)
-    cmds.polyChipOff(matched_faces, dup=False)
-    cmds.polyEditUV(matched_faces, u=uOffset)
+
+    borderVerts = cmds.polyListComponentConversion(matched_faces, ff=True, tv=True, bo=True)
+    borderFaces = cmds.polyListComponentConversion(borderVerts, fv=True, tf=True) #sort of grow extrude
+    borderVerts = cmds.polyListComponentConversion(borderFaces, ff=True, tv=True) #we need wider row to mask tessellation in ue4
+
+
+    borderEdges = cmds.polyListComponentConversion(matched_faces, ff=True, te=True, bo=True)
+
+    cmds.polyMapCut(borderEdges) # cut edges
+    cmds.polyEditUV(matched_faces, u=uOffset) # offset faces
+    cmds.polyColorPerVertex(borderVerts, rgb=(0.0, 1.0, 1.0)) #fill verts
+    cmds.select(borderVerts)
     cmds.bakePartialHistory(shape, prePostDeformers=True)
     cmds.select(clear=True)
 
@@ -89,13 +99,14 @@ def CutAndMoveUVForBodyPartsHiding(shape, mask, uOffset):
 def CutMeshAndOffsetUVs():
     cmds.select(clear=True)
     shape = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
-    CutAndMoveUVForBodyPartsHiding(shape, r'e:\blackops\__WorkFlow\Maya\Resources\head_mask.tga', 1.0)
-    CutAndMoveUVForBodyPartsHiding(shape, r'e:\blackops\__WorkFlow\Maya\Resources\hands_mask.tga', 2.0)
-    CutAndMoveUVForBodyPartsHiding(shape, r'e:\blackops\__WorkFlow\Maya\Resources\feet_mask.tga', 3.0)
-    CutAndMoveUVForBodyPartsHiding(shape, r'e:\blackops\__WorkFlow\Maya\Resources\genitalia_mask.tga', 4.0)
+    CutAndMoveUVForBodyPartsHiding(shape, 'e:\\blackops\\__WorkFlow\\Maya\\Resources\\head_mask.tga', 1.0)
+    CutAndMoveUVForBodyPartsHiding(shape, 'e:\\blackops\\__WorkFlow\\Maya\\Resources\\hands_mask.tga', 2.0)
+    CutAndMoveUVForBodyPartsHiding(shape, 'e:\\blackops\\__WorkFlow\\Maya\\Resources\\feet_mask.tga', 3.0)
+    CutAndMoveUVForBodyPartsHiding(shape, 'e:\\blackops\\__WorkFlow\\Maya\\Resources\\genitalia_mask.tga', 4.0)
 
-    mayaUtils.SetVertexColorForBorderVertices()
-    mayaUtils.SetAverageNormalsForBorderVertices(shape)
+
+    #mayaUtils.SetVertexColorForBorderVertices()do it manually
+    #mayaUtils.SetAverageNormalsForBorderVertices(shape) #dont need it anymore
     cmds.bakePartialHistory(shape, prePostDeformers=True)
 
 def RenameAndCombineMeshes():

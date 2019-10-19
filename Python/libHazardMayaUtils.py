@@ -85,6 +85,48 @@ def GetBorderFaces(mesh):
     borderFacesList = cmds.polyListComponentConversion(borderVertsList, tf=True)
     return borderFacesList
 
+def ManualTransferAttributesForBorderVerts(targetMesh, srcMesh):
+    cmds.select(clear=True)
+    borderVertsList = GetBorderVertices(targetMesh)
+    borderVertsList = cmds.filterExpand(borderVertsList, sm=31, expand=True)
+
+    bodySkinCluster = GetSkinCluster(srcMesh)
+    genitaliaSkinCluster = GetSkinCluster(targetMesh)
+
+    #transfer attributes manually
+    for v in borderVertsList:
+        pos = cmds.pointPosition(v, world=True)
+        #print pos
+        closestVert = GetClosestVertex(srcMesh, pos)
+        closestVertPos = cmds.xform(closestVert, t=True, ws=True, q=True)
+        closestVertNormal = cmds.polyNormalPerVertex(closestVert, query=True, xyz=True)
+
+        # set position
+        cmds.move(closestVertPos[0], closestVertPos[1], closestVertPos[2], v, absolute=True, worldSpace=True)
+        # set normal
+        cmds.polyNormalPerVertex(v, xyz=(closestVertNormal[0], closestVertNormal[1], closestVertNormal[2]))
+
+        referenceVertInfluences = cmds.skinPercent(bodySkinCluster, closestVert, query=True, transform=None, ignoreBelow=0.00001)
+
+        targetInfluences = cmds.skinCluster(genitaliaSkinCluster, query=True, influence=True)
+
+        targetTransformValues = []
+
+        for i in referenceVertInfluences:
+            if i not in targetInfluences:
+                cmds.skinCluster(genitaliaSkinCluster, e=True, addInfluence=i, weight=0.0)
+                #print i
+            referenceInfluenceValuePerVertex = cmds.skinPercent(bodySkinCluster, closestVert, query=True, transform=i, transformValue=True)
+            targetTransformValues.append((i, referenceInfluenceValuePerVertex))
+
+        #print targetTransformValues
+
+        # set weight
+        cmds.skinPercent(genitaliaSkinCluster, v, transformValue=targetTransformValues)
+
+
+    cmds.bakePartialHistory(targetMesh, prePostDeformers=True)
+
 
 def GetBorderVertices(mesh):
     cmds.select(clear=True)

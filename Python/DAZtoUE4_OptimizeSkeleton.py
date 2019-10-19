@@ -112,6 +112,7 @@ def OptimizeSkeleton(pbCollapseToes=False):
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
 
+
     mayaUtils.SetVertexColorForBorderVertices() #for genitalia mesh also
 
     dazUtils.RenameAndCombineMeshes()
