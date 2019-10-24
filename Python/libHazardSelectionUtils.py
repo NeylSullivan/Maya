@@ -1,5 +1,10 @@
 import maya.cmds as cmds
+import maya.OpenMaya as om
+import libHazardMayaUtils as mayaUtils
 
+reload(mayaUtils)
+
+# Deprecated
 def GetFaceUVCenter(face):
     uvs = cmds.filterExpand(cmds.polyListComponentConversion(face, toUV=True, border=True), sm=35, expand=True)
     uList = []
@@ -14,6 +19,7 @@ def GetFaceUVCenter(face):
 
     return [u, v]
 
+ # Deprecated
 def GetFacesByBitmapMask(shape, bitmapMaskPath):
     file_node = cmds.shadingNode("file", asTexture=True)
     cmds.setAttr('%s.fileTextureName' % file_node, bitmapMaskPath, type="string")
@@ -23,7 +29,7 @@ def GetFacesByBitmapMask(shape, bitmapMaskPath):
     matched_faces = []
 
     for f in all_faces:
-        center = GetFaceUVCenter(f)
+        center = GetFaceUVCenter(f) # !!! VERY SLOW !!! Can be optimized with maya.OpenMaya
         alpha = 0.0
         try:
             alpha = cmds.colorAtPoint(file_node, u=center[0], v=center[1]) #return array with one element
@@ -52,36 +58,36 @@ def IsUvInRange(pInUV, pFrom, pTo):
 
     return True
 
-def GetFacesOutsideCenterUVRange(pShape):
-    cmds.select(clear=True)
-
-    all_faces = cmds.filterExpand(cmds.polyListComponentConversion(pShape, toFace=True), sm=34, expand=True)
-    matched_faces = []
-
-    UVfrom = [0, 0]
-    UVto = [1, 1]
-
-    for f in all_faces:
-        center = GetFaceUVCenter(f)
-
-        if IsUvInRange(center, UVfrom, UVto): # Skip if in range
-            continue
-        matched_faces.append(f)
-
-    return matched_faces
 
 #def GetFacesInUVRange(pShape, pFrom=[0, 0], pTo=[1, 1]):
-def GetFacesInUVRange(pShape, pFrom, pTo):
-    cmds.select(clear=True)
+def GetFacesInUVRange(pShape, pFrom, pTo, pInvertResult=False):
+    mfnMesh = om.MFnMesh(mayaUtils.GetDagPath(pShape))
+    numFaces = mfnMesh.numPolygons()
 
-    all_faces = cmds.filterExpand(cmds.polyListComponentConversion(pShape, toFace=True), sm=34, expand=True)
     matched_faces = []
 
-    for f in all_faces:
-        center = GetFaceUVCenter(f)
+    uUtil = om.MScriptUtil()
+    uUtil.createFromDouble(0.0)
+    uPtr = uUtil.asFloatPtr()
 
-        if IsUvInRange(center, pFrom, pTo):
-            matched_faces.append(f)
+    vUtil = om.MScriptUtil()
+    vUtil.createFromDouble(0.0)
+    vPtr = vUtil.asFloatPtr()
+
+    for faceIdx in range(numFaces):
+        center = [0.0, 0.0]
+        vtxCount = mfnMesh.polygonVertexCount(faceIdx)
+        for vertIdx in range(vtxCount):
+            mfnMesh.getPolygonUV(faceIdx, vertIdx, uPtr, vPtr)
+            center[0] += om.MScriptUtil(uPtr).asFloat()
+            center[1] += om.MScriptUtil(vPtr).asFloat()
+
+        # Find average
+        center[0] /= vtxCount
+        center[1] /= vtxCount
+
+        if (IsUvInRange(center, pFrom, pTo) and not pInvertResult) or (not IsUvInRange(center, pFrom, pTo) and pInvertResult):
+            matched_faces.append('{}.f[{}]'.format(pShape, faceIdx))
 
     return matched_faces
 
@@ -91,3 +97,6 @@ def GetFacesInUTile(pShape, pTileIndex):
     matched_faces = GetFacesInUVRange(pShape, uvFrom, uvTo)
     cmds.select(matched_faces)
     return matched_faces
+
+def GetFacesOutsideCenterUVRange(pShape):
+    return GetFacesInUVRange(pShape, pFrom=[0.0, 0.0], pTo=[1.0, 1.0], pInvertResult=True)

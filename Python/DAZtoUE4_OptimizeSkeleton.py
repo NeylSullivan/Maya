@@ -62,7 +62,7 @@ def OptimizeBodyMeshForBaking():
 #
 #   MAIN
 #
-def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False):
+def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, pCreateIKConstraints=False):
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -107,7 +107,7 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False):
     dazUtils.AddCameraJoint()
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
     dazUtils.MakeBendCorrectiveJoints()
-    dazUtils.CreateIkJoints()
+    dazUtils.CreateIkJoints(pCreateIKConstraints)
 
     dazUtils.SetJointsVisualProperties()
 

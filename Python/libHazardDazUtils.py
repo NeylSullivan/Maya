@@ -93,7 +93,7 @@ def MaskShellsEdgesForTesselation(shape, pUVtile):
     borderVerts = cmds.polyListComponentConversion(borderFaces, ff=True, tv=True) #we need wider row to mask tessellation in ue4
 
     cmds.polyColorPerVertex(borderVerts, rgb=(0.0, 1.0, 1.0)) #fill verts red=0 color
-    cmds.bakePartialHistory(shape, prePostDeformers=True)
+    #cmds.bakePartialHistory(shape, prePostDeformers=True) # No need to bake after every masking step as geometry not changed, just vertex color
     cmds.select(clear=True)
 
 
@@ -105,7 +105,6 @@ def CutMeshAndOffsetUVs():
     MaskShellsEdgesForTesselation(shape, 2)
     MaskShellsEdgesForTesselation(shape, 3)
     MaskShellsEdgesForTesselation(shape, 4)
-
 
     #mayaUtils.SetVertexColorForBorderVertices()do it manually
     #mayaUtils.SetAverageNormalsForBorderVertices(shape) #dont need it anymore
@@ -492,18 +491,18 @@ def OptimizeBodyMaterials():
     print 'Finished body materials optimization: time taken %.02f seconds' % (time.clock()-start)
 
 
-def CreateIkJoints():
-    CreateIkJoint('Camera', 'Root', 'IK_Camera', bCreateConstraint=True)
+def CreateIkJoints(pCreateConstraint=True):
+    CreateIkJoint('Camera', 'Root', 'IK_Camera', pCreateConstraint)
     CreateIkJoint('Root', 'Root', 'IK_Foot_Root')
-    CreateIkJoint('Foot_R', 'IK_Foot_Root', 'IK_Foot_R', bCreateConstraint=True)
-    CreateIkJoint('Foot_L', 'IK_Foot_Root', 'IK_Foot_L', bCreateConstraint=True)
+    CreateIkJoint('Foot_R', 'IK_Foot_Root', 'IK_Foot_R', pCreateConstraint)
+    CreateIkJoint('Foot_L', 'IK_Foot_Root', 'IK_Foot_L', pCreateConstraint)
 
-    CreateIkJoint('Root', 'Root', 'IK_Hands_Root')
-    CreateIkJoint('Hand_R', 'IK_Hands_Root', 'IK_Weapon_Root', bCreateConstraint=True)
-    CreateIkJoint('Hand_R', 'IK_Weapon_Root', 'IK_Hand_R', bCreateConstraint=True)
-    CreateIkJoint('Hand_L', 'IK_Weapon_Root', 'IK_Hand_L', bCreateConstraint=True)
+    CreateIkJoint('Root', 'Root', 'IK_Hands_Root', False)
+    CreateIkJoint('Hand_R', 'IK_Hands_Root', 'IK_Weapon_Root', pCreateConstraint)
+    CreateIkJoint('Hand_R', 'IK_Weapon_Root', 'IK_Hand_R', pCreateConstraint)
+    CreateIkJoint('Hand_L', 'IK_Weapon_Root', 'IK_Hand_L', pCreateConstraint)
 
-    CreateIkJoint('Hips', 'Root', 'IK_Hips', bCreateConstraint=True)
+    CreateIkJoint('Hips', 'Root', 'IK_Hips', pCreateConstraint)
 
 
 def CreateIkJoint(referenceJnt, parentJnt, ikJntName, bCreateConstraint=False):
@@ -890,21 +889,12 @@ def TriangulateAllSkinnedMeshes():
     cmds.select(clear=True)
     print 'FINISHED TriangulateAllSkinnedMeshes(): time taken %.02f seconds' % (time.clock()-start)
 
-def TestSelectionSpeed():
-    start = time.clock()
-    cmds.select(clear=True)
-    bodyMesh = mayaUtils.FindMeshByWildcard('Genesis8*Shape', preferShapeWithMaxVertices=True, checkForMatWithName='Torso')
-    if bodyMesh:
-        handsFaces = selUtils.GetFacesInUTile(bodyMesh, 2)
-        cmds.select(handsFaces)
-    print 'FINISHED TestSelectionSpeed(): time taken %.02f seconds' % (time.clock()-start)
-
 def SubdivideImportantBodyParts():
     start = time.clock()
     cmds.select(clear=True)
-    bodyMesh = mayaUtils.FindMeshByWildcard('Genesis8*Shape', preferShapeWithMaxVertices=True, checkForMatWithName='Torso')
+    bodyMesh = mayaUtils.FindMeshByWildcard('Genesis*Shape', preferShapeWithMaxVertices=True, checkForMatWithName='Torso')
     if bodyMesh:
-        facesToSubdiv =[]
+        facesToSubdiv = []
 
         nipplesVerts = []
         leftNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_LEFT_NIPPLE_UV)

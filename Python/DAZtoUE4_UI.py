@@ -17,7 +17,7 @@ class DAZtoUE4_UI(object):
 
         self.WINDOW_NAME = 'hazardDAZtoUE4'
         self.WINDOW_TITLE = "DAZ to UE4 Tools"
-        self.WINDOW_SIZE = (260, 450)
+        self.WINDOW_SIZE = (260, 500)
 
         if cmds.window(self.WINDOW_NAME, exists=True):
             cmds.deleteUI(self.WINDOW_NAME)
@@ -34,6 +34,7 @@ class DAZtoUE4_UI(object):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                     self.btnOptimizeSkeleton = cmds.button(label="Optimize Skeleton and Mesh", command=self.OptimizeSkeleton)
                     self.chkbxPreSubdivideImportantParts = cmds.checkBox(label='Pre Subdivide Important Parts', align='left', value=True)
+                    self.chkbxCreateIKConstraints = cmds.checkBox(label='Create IK Constraints', align='left', value=False)
                     self.chkbxCollapseToes = cmds.checkBox(label='Collapse Toes', align='left', value=False)
 
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
@@ -71,7 +72,8 @@ class DAZtoUE4_UI(object):
         reload(DAZtoUE4)
         collapseToes = cmds.checkBox(self.chkbxCollapseToes, query=True, value=True)
         subdivide = cmds.checkBox(self.chkbxPreSubdivideImportantParts, query=True, value=True)
-        DAZtoUE4.OptimizeSkeleton(collapseToes, subdivide)
+        createIKConstraints = cmds.checkBox(self.chkbxCreateIKConstraints, query=True, value=True)
+        DAZtoUE4.OptimizeSkeleton(collapseToes, subdivide, createIKConstraints)
 
     def CreateOptimizedSkeletonOnlyAndRetargetAnim(self, _unused):
         reload(DAZtoUE4)
