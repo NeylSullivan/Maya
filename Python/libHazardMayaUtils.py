@@ -13,6 +13,12 @@ def CleanUnusedMaterials():
     print 'CleanUnusedMaterials()'
     mel.eval('MLdeleteUnused;')
 
+def GetVertexFromUV(pShape, pUV):
+    worldCoord = UvCoordToWorld(pUV[0], pUV[1], pShape)
+    if worldCoord:
+        return GetClosestVertex(pShape, worldCoord)
+    return None
+
 #https://gist.github.com/HamtaroDeluxe/67a97305ffbe284e5f104d8b4f9eb0f2
 #returns the closest vertex given a mesh and a position [x,y,z] in world space.
 #Uses om.MfnMesh.getClosestPoint() returned face ID and iterates through face's vertices.

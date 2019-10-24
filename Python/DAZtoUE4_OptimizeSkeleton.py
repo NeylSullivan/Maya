@@ -62,7 +62,7 @@ def OptimizeBodyMeshForBaking():
 #
 #   MAIN
 #
-def OptimizeSkeleton(pbCollapseToes=False):
+def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False):
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -71,6 +71,9 @@ def OptimizeSkeleton(pbCollapseToes=False):
     cmds.select(clear=True)
 
     dazUtils.RemoveObjectsByWildcard(['Fingernails_*'], 'transform')
+
+    if pSubdivideImportantBodyParts:
+        dazUtils.SubdivideImportantBodyParts()
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
     mayaUtils.DestroyUnusedJoints(pbCollapseToes)
@@ -112,10 +115,15 @@ def OptimizeSkeleton(pbCollapseToes=False):
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
 
-
     mayaUtils.SetVertexColorForBorderVertices() #for genitalia mesh also
 
     dazUtils.RenameAndCombineMeshes()
+
+    # geografted hands
+    bodyMesh = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
+    facesWithArmsMat = mayaUtils.GetFacesByMatsWildcard(bodyMesh, 'Arms*')
+    mayaUtils.AssignObjectListToShader(facesWithArmsMat, 'Body') #use new material name
+
 
     dazUtils.CutMeshAndOffsetUVs()
 

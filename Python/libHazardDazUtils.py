@@ -8,6 +8,13 @@ reload(hazMath)
 reload(mayaUtils)
 reload(selUtils)
 
+
+#
+# konstants
+#
+k_LEFT_NIPPLE_UV = [0.7961298823356628, 0.8489649891853333]
+k_RIGHT_NIPPLE_UV = [0.7028849720954895, 0.8489649891853333]
+
 def PostprocessGenitaliaObject(genitaliaMeshWildcard):
     print 'PostprocessGenitaliaObject(genitaliaMeshWildcard={0})'.format(genitaliaMeshWildcard)
 
@@ -23,7 +30,7 @@ def PostprocessGenitaliaObject(genitaliaMeshWildcard):
     #replace material with original torso mat
     facesWithTorsoMat = mayaUtils.GetFacesByMatsWildcard(genitaliaMesh, 'Torso*')
     mayaUtils.AssignObjectListToShader(facesWithTorsoMat, 'Body') #use new material name
-    mayaUtils.ArrangeUVByMat(genitaliaMesh, 'Body', su=0.5, sv=0.5, u=0.5, v=0.5)
+    # mayaUtils.ArrangeUVByMat(genitaliaMesh, 'Body', su=0.5, sv=0.5, u=0.5, v=0.5)
     mayaUtils.AppendShadingGroupByMat(genitaliaMesh, 'Anus', 'Vagina')
     mayaUtils.RenameMaterial('Anus', 'BodyGenitalia')
     cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
@@ -76,22 +83,16 @@ def PostprocessGenitaliaObject(genitaliaMeshWildcard):
 
     cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
 
-def CutAndMoveUVForBodyPartsHiding(shape, mask, uOffset):
+def MaskShellsEdgesForTesselation(shape, pUVtile):
     cmds.select(clear=True)
-    print 'CutAndMoveUVForBodyPartsHiding shape{0}, mask "{1}", uOffset {2}'.format(shape, mask, uOffset)
-    matched_faces = selUtils.GetFacesByBitmapMask(shape, mask)
+    print 'MaskShellsEdgesForTesselation shape: {0}, pUVtile: {1}'.format(shape, pUVtile)
+    matched_faces = selUtils.GetFacesInUTile(shape, pUVtile)
 
     borderVerts = cmds.polyListComponentConversion(matched_faces, ff=True, tv=True, bo=True)
     borderFaces = cmds.polyListComponentConversion(borderVerts, fv=True, tf=True) #sort of grow extrude
     borderVerts = cmds.polyListComponentConversion(borderFaces, ff=True, tv=True) #we need wider row to mask tessellation in ue4
 
-
-    borderEdges = cmds.polyListComponentConversion(matched_faces, ff=True, te=True, bo=True)
-
-    cmds.polyMapCut(borderEdges) # cut edges
-    cmds.polyEditUV(matched_faces, u=uOffset) # offset faces
-    cmds.polyColorPerVertex(borderVerts, rgb=(0.0, 1.0, 1.0)) #fill verts
-    cmds.select(borderVerts)
+    cmds.polyColorPerVertex(borderVerts, rgb=(0.0, 1.0, 1.0)) #fill verts red=0 color
     cmds.bakePartialHistory(shape, prePostDeformers=True)
     cmds.select(clear=True)
 
@@ -99,10 +100,11 @@ def CutAndMoveUVForBodyPartsHiding(shape, mask, uOffset):
 def CutMeshAndOffsetUVs():
     cmds.select(clear=True)
     shape = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
-    CutAndMoveUVForBodyPartsHiding(shape, 'e:\\blackops\\__WorkFlow\\Maya\\Resources\\head_mask.tga', 1.0)
-    CutAndMoveUVForBodyPartsHiding(shape, 'e:\\blackops\\__WorkFlow\\Maya\\Resources\\hands_mask.tga', 2.0)
-    CutAndMoveUVForBodyPartsHiding(shape, 'e:\\blackops\\__WorkFlow\\Maya\\Resources\\feet_mask.tga', 3.0)
-    CutAndMoveUVForBodyPartsHiding(shape, 'e:\\blackops\\__WorkFlow\\Maya\\Resources\\genitalia_mask.tga', 4.0)
+    MaskShellsEdgesForTesselation(shape, 0)
+    MaskShellsEdgesForTesselation(shape, 1)
+    MaskShellsEdgesForTesselation(shape, 2)
+    MaskShellsEdgesForTesselation(shape, 3)
+    MaskShellsEdgesForTesselation(shape, 4)
 
 
     #mayaUtils.SetVertexColorForBorderVertices()do it manually
@@ -120,7 +122,7 @@ def RenameAndCombineMeshes():
     #
     #EYES
     #
-    eyesList = cmds.ls('HazardEyes*', type='transform', objectsOnly=True, long=True)
+    eyesList = cmds.ls('*Eyes*', type='transform', objectsOnly=True, long=True)
 
     if eyesList and len(eyesList) > 1:
         print '\tCombining {0}'.format(eyesList)
@@ -156,16 +158,20 @@ def RenameAndCombineMeshes():
         teethMouthList.extend(teethList)
 
 
-    if teethMouthList and len(teethMouthList) > 1:
-        print '\tCombining {0}'.format(teethMouthList)
-        cmds.polyUniteSkinned(teethMouthList, ch=False)
-        cmds.rename('FemaleMouth')
-        cmds.select(clear=True)
-
-        #clear orphane transforms if exist
-        for o in teethMouthList:
-            if cmds.objExists(o):
-                cmds.delete(o)
+    if teethMouthList:
+        if len(teethMouthList) > 1: #multiple objects
+            print '\tCombining {0}'.format(teethMouthList)
+            cmds.polyUniteSkinned(teethMouthList, ch=False)
+            cmds.rename('FemaleMouth')
+            cmds.select(clear=True)
+            #clear orphane transforms if exist
+            for o in teethMouthList:
+                if cmds.objExists(o):
+                    cmds.delete(o)
+        else:
+            # nothing to combine, just rename single object
+            cmds.rename(teethMouthList, 'FemaleMouth')
+            cmds.select(clear=True)
 
     else:
         print '\t No MOUTH meshes to combine'
@@ -200,8 +206,8 @@ def AddBreastJoints():
     mayaUtils.DeleteFacesByMat(tempShape, ['Torso'], bInvert=True)
     cmds.bakePartialHistory(tempShape, preCache=True)
 
-    AddNippleJointAndRealighnBreast('Nipple_L', 'Pectoral_L_JIGGLE', [0.5732300281524658, 0.5203400254249573], tempShape)
-    AddNippleJointAndRealighnBreast('Nipple_R', 'Pectoral_R_JIGGLE', [0.4267699718475342, 0.5203400254249573], tempShape)
+    AddNippleJointAndRealighnBreast('Nipple_L', 'Pectoral_L_JIGGLE', k_LEFT_NIPPLE_UV, tempShape)
+    AddNippleJointAndRealighnBreast('Nipple_R', 'Pectoral_R_JIGGLE', k_RIGHT_NIPPLE_UV, tempShape)
 
     cmds.delete(tempShape)
 
@@ -440,9 +446,18 @@ def OptimizeBodyMaterials():
         return
 
     mayaUtils.AppendShadingGroupByMat(shape, 'Mouth', 'Teeth')
-    mouthShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['Mouth'], '_MOUTH')
+    mouthShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['Mouth', 'Teeth'], '_MOUTH')
 
-    eyesShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['Pupils', 'EyeMoisture', 'Cornea', 'Irises', 'Sclera'], '_Eyes')
+    eyesShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['EyeMoisture', 'Cornea'], '_Eyes')
+
+    unusedEyesFaces = selUtils.GetFacesOutsideCenterUVRange(eyesShape)
+    cmds.delete(unusedEyesFaces)
+
+    unusedEyesShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['Pupils', 'Irises', 'Sclera'], '_EyesUnused')
+    cmds.delete(unusedEyesShape)
+
+    mayaUtils.AppendShadingGroupByMat(eyesShape, 'EyeMoisture', 'Cornea')
+
 
     mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'Lips')
     mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'Ears')
@@ -451,17 +466,17 @@ def OptimizeBodyMaterials():
     mayaUtils.AppendShadingGroupByMat(shape, 'Legs', 'Toenails')
     mayaUtils.AppendShadingGroupByMat(shape, 'Arms', 'Fingernails')
 
-    mayaUtils.ArrangeUVByMat(shape, 'Torso', su=0.5, sv=0.5, u=0.5, v=0.5)
-    mayaUtils.ArrangeUVByMat(shape, 'Face', su=0.5, sv=0.5, u=0.0, v=0.5)
-    mayaUtils.ArrangeUVByMat(shape, 'Legs', su=0.5, sv=0.5, u=0.5, v=0.0)
-    mayaUtils.ArrangeUVByMat(shape, 'Arms', su=0.5, sv=0.5, u=0.0, v=0.0)
+    #mayaUtils.ArrangeUVByMat(shape, 'Torso', su=0.5, sv=0.5, u=0.5, v=0.5)
+    #mayaUtils.ArrangeUVByMat(shape, 'Face', su=0.5, sv=0.5, u=0.0, v=0.5)
+    #mayaUtils.ArrangeUVByMat(shape, 'Legs', su=0.5, sv=0.5, u=0.5, v=0.0)
+    #mayaUtils.ArrangeUVByMat(shape, 'Arms', su=0.5, sv=0.5, u=0.0, v=0.0)
 
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Legs')
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Arms')
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Face')
 
     mayaUtils.RenameMaterial('Torso', 'Body')
-    mayaUtils.RenameMaterial('HazardEyes', 'Eyes')
+    mayaUtils.RenameMaterial('EyeMoisture', 'Eyes')
 
     mayaUtils.RenameMaterial('EyeLashes*', 'FemaleEyeLashes')
 
@@ -863,3 +878,62 @@ def MakeBendCorrectiveJoints():
 
     MakeBendCorrectiveJoint('Elbow_L_BEND', 'ForeArm_L', 'Arm_L', ['Arm_L_TWIST', 'ForeArm_L'])
     MakeBendCorrectiveJoint('Elbow_R_BEND', 'ForeArm_R', 'Arm_R', ['Arm_R_TWIST', 'ForeArm_R'])
+
+def TriangulateAllSkinnedMeshes():
+    start = time.clock()
+    cmds.select(clear=True)
+    skinList = cmds.ls(type='skinCluster') or []
+    for s in skinList:
+        mesh = mayaUtils.GetMeshFromSkinCluster(s)
+        cmds.polyTriangulate(mesh)
+        cmds.bakePartialHistory(mesh, prePostDeformers=True)
+    cmds.select(clear=True)
+    print 'FINISHED TriangulateAllSkinnedMeshes(): time taken %.02f seconds' % (time.clock()-start)
+
+def TestSelectionSpeed():
+    start = time.clock()
+    cmds.select(clear=True)
+    bodyMesh = mayaUtils.FindMeshByWildcard('Genesis8*Shape', preferShapeWithMaxVertices=True, checkForMatWithName='Torso')
+    if bodyMesh:
+        handsFaces = selUtils.GetFacesInUTile(bodyMesh, 2)
+        cmds.select(handsFaces)
+    print 'FINISHED TestSelectionSpeed(): time taken %.02f seconds' % (time.clock()-start)
+
+def SubdivideImportantBodyParts():
+    start = time.clock()
+    cmds.select(clear=True)
+    bodyMesh = mayaUtils.FindMeshByWildcard('Genesis8*Shape', preferShapeWithMaxVertices=True, checkForMatWithName='Torso')
+    if bodyMesh:
+        facesToSubdiv =[]
+
+        nipplesVerts = []
+        leftNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_LEFT_NIPPLE_UV)
+        rightNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_RIGHT_NIPPLE_UV)
+        if leftNipple and rightNipple:
+            nipplesVerts = [leftNipple, rightNipple]
+            nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
+            nipplesVerts = cmds.polyListComponentConversion(nipplesFaces, ff=True, tv=True)
+            nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
+            nipplesVerts = cmds.polyListComponentConversion(nipplesFaces, ff=True, tv=True)
+            nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
+            if nipplesFaces:
+                facesToSubdiv.extend(nipplesFaces)
+
+        earsFaces = mayaUtils.GetFacesByMatsWildcard(bodyMesh, 'Ears')
+        if earsFaces:
+            facesToSubdiv.extend(earsFaces)
+
+        handsFaces = selUtils.GetFacesInUTile(bodyMesh, 2)
+        if handsFaces:
+            facesToSubdiv.extend(handsFaces)
+
+        feetFaces = selUtils.GetFacesInUTile(bodyMesh, 3)
+        if feetFaces:
+            facesToSubdiv.extend(feetFaces)
+
+        if facesToSubdiv:
+            cmds.polySmooth(facesToSubdiv)
+            cmds.bakePartialHistory(bodyMesh, prePostDeformers=True)
+
+    cmds.select(clear=True)
+    print 'FINISHED SubdivideImportantBodyParts(): time taken %.02f seconds' % (time.clock()-start)
