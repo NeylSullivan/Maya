@@ -72,14 +72,17 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
 
     dazUtils.RemoveObjectsByWildcard(['Fingernails_*'], 'transform')
 
-    if pSubdivideImportantBodyParts:
-        dazUtils.SubdivideImportantBodyParts()
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
     mayaUtils.DestroyUnusedJoints(pbCollapseToes)
     mayaUtils.ParentAllGeometryToWorld()
     mayaUtils.ResetBindPoseForAllSkinClusters()
     mayaUtils.SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
+
+    if pSubdivideImportantBodyParts:
+        dazUtils.SubdivideImportantBodyParts()
+
+
     dazUtils.RenameSkeletonJoints()
     oldJoints = mayaUtils.GetHierarchy('Root')
 
@@ -97,11 +100,12 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
     cmds.delete(oldJoints)
     dazUtils.RenameNewSkeleton()
 
+
     mayaUtils.ImportSkinning(skinData)          # import skinning
 
     cmds.select(clear=True)
 
-    dazUtils.AddBreastJoints() ################ should nipples need to be skinnedor it just point for ue4 sockets?
+    dazUtils.AddBreastJoints() ################ should nipples need to be skinned or it just points for ue4 sockets?
 
     dazUtils.AddEndJoints()
     dazUtils.AddCameraJoint()
@@ -109,20 +113,17 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
     dazUtils.MakeBendCorrectiveJoints()
     dazUtils.CreateIkJoints(pCreateIKConstraints)
 
+
     dazUtils.SetJointsVisualProperties()
 
-    dazUtils.OptimizeBodyMaterials()
+
+    dazUtils.OptimizeBodyMaterials() #FIXME <-- Check this, try to extract blendshape before baking history, then readd it
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
 
     mayaUtils.SetVertexColorForBorderVertices() #for genitalia mesh also
 
     dazUtils.RenameAndCombineMeshes()
-
-    # geografted hands
-    bodyMesh = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
-    facesWithArmsMat = mayaUtils.GetFacesByMatsWildcard(bodyMesh, 'Arms*')
-    mayaUtils.AssignObjectListToShader(facesWithArmsMat, 'Body') #use new material name
 
 
     dazUtils.CutMeshAndOffsetUVs()

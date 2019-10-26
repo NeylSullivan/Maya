@@ -1,7 +1,10 @@
 from math import sqrt
 
+def GetDistance2D(A, B):
+    return sqrt(pow(A[0] - B[0], 2) + pow(A[1] - B[1], 2))
+
 def GetDistance(A, B):
-    return sqrt(pow(A[0]-B[0],2)+pow(A[1]-B[1],2)+pow(A[2]-B[2],2))
+    return sqrt(pow(A[0] - B[0], 2) + pow(A[1] - B[1], 2) + pow(A[2] - B[2], 2))
 
 def GetRangePct(MinValue, MaxValue, Value):
     # Avoid Divide by Zero. But also if our range is a point, output whether Value is before or after.

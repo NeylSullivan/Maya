@@ -444,6 +444,7 @@ def OptimizeBodyMaterials():
         print 'Error! Can`t find body(Torso) shape'
         return
 
+
     mayaUtils.AppendShadingGroupByMat(shape, 'Mouth', 'Teeth')
     mouthShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['Mouth', 'Teeth'], '_MOUTH')
 
@@ -452,11 +453,11 @@ def OptimizeBodyMaterials():
     unusedEyesFaces = selUtils.GetFacesOutsideCenterUVRange(eyesShape)
     cmds.delete(unusedEyesFaces)
 
+
     unusedEyesShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['Pupils', 'Irises', 'Sclera'], '_EyesUnused')
     cmds.delete(unusedEyesShape)
 
     mayaUtils.AppendShadingGroupByMat(eyesShape, 'EyeMoisture', 'Cornea')
-
 
     mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'Lips')
     mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'Ears')
@@ -464,11 +465,6 @@ def OptimizeBodyMaterials():
 
     mayaUtils.AppendShadingGroupByMat(shape, 'Legs', 'Toenails')
     mayaUtils.AppendShadingGroupByMat(shape, 'Arms', 'Fingernails')
-
-    #mayaUtils.ArrangeUVByMat(shape, 'Torso', su=0.5, sv=0.5, u=0.5, v=0.5)
-    #mayaUtils.ArrangeUVByMat(shape, 'Face', su=0.5, sv=0.5, u=0.0, v=0.5)
-    #mayaUtils.ArrangeUVByMat(shape, 'Legs', su=0.5, sv=0.5, u=0.5, v=0.0)
-    #mayaUtils.ArrangeUVByMat(shape, 'Arms', su=0.5, sv=0.5, u=0.0, v=0.0)
 
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Legs')
     mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Arms')
@@ -479,8 +475,10 @@ def OptimizeBodyMaterials():
 
     mayaUtils.RenameMaterial('EyeLashes*', 'FemaleEyeLashes')
 
-    print 'Baking history'
-    cmds.bakePartialHistory(shape, prePostDeformers=True)
+
+    print 'OptimizeBodyMaterials() PAUSED'
+
+    SafeBakePartialHistoryKeepBlendShapes(shape)
     if mouthShape:
         cmds.bakePartialHistory(mouthShape, prePostDeformers=True)
     if eyesShape:
@@ -489,6 +487,51 @@ def OptimizeBodyMaterials():
     mayaUtils.CleanUnusedInfluensesOnAllSkinClusters()
 
     print 'Finished body materials optimization: time taken %.02f seconds' % (time.clock()-start)
+
+def SafeBakePartialHistoryKeepBlendShapes(pShape):
+    print 'SafeBakePartialHistoryKeepBlendShapes(pShape=\'{}\')'.format(pShape)
+    bs = mayaUtils.GetBlendShape(pShape)
+    if not bs:
+        print 'No blendshape detected. Performing standart baking partial history'
+        #cmds.bakePartialHistory(shape, prePostDeformers=True)
+    else:
+        print 'Detected blendshape \'{}\'. Performing ajustments'.format(bs)
+        weightCount = cmds.blendShape(bs, q=True, weightCount=True)
+        names = cmds.listAttr(bs + '.w', m=True)
+
+        tempTargetObjects = []
+
+        # Extract every blendshape to separate mesh
+        for i in range(weightCount):
+            # Set current index weight to 1.0, all others to 0.0
+            for x in range(weightCount):
+                weight = 0.0
+                if i == x:
+                    weight = 1.0
+                cmds.blendShape(bs, edit=True, weight=[x, weight])
+            newShape = cmds.duplicate(pShape, name=names[i])[0]
+            cmds.setAttr(newShape+'.tz', lock=0)
+            cmds.bakePartialHistory(newShape)
+            cmds.xform(newShape, absolute=True, translation=[0, 0, 50.0*(i+1)])
+            tempTargetObjects.append(newShape)
+
+
+        # Reset all weights to zero
+        for i in range(weightCount):
+            cmds.blendShape(bs, edit=True, weight=[i, 0.0])
+
+        cmds.delete(bs)
+        cmds.bakePartialHistory(pShape, prePostDeformers=True)
+
+
+
+        argsList = []
+        argsList.extend(tempTargetObjects)
+        argsList.append(pShape) # LAST add initial object to list
+        cmds.blendShape(argsList)
+
+        cmds.delete(tempTargetObjects) # delete temporary objects
+
 
 
 def CreateIkJoints(pCreateConstraint=True):
@@ -899,6 +942,8 @@ def SubdivideImportantBodyParts():
         nipplesVerts = []
         leftNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_LEFT_NIPPLE_UV)
         rightNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_RIGHT_NIPPLE_UV)
+
+
         if leftNipple and rightNipple:
             nipplesVerts = [leftNipple, rightNipple]
             nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
@@ -920,6 +965,7 @@ def SubdivideImportantBodyParts():
         feetFaces = selUtils.GetFacesInUTile(bodyMesh, 3)
         if feetFaces:
             facesToSubdiv.extend(feetFaces)
+
 
         if facesToSubdiv:
             cmds.polySmooth(facesToSubdiv)

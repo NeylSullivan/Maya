@@ -13,11 +13,47 @@ def CleanUnusedMaterials():
     print 'CleanUnusedMaterials()'
     mel.eval('MLdeleteUnused;')
 
+
+# Find closest vertex to given uv coordinates
 def GetVertexFromUV(pShape, pUV):
-    worldCoord = UvCoordToWorld(pUV[0], pUV[1], pShape)
-    if worldCoord:
-        return GetClosestVertex(pShape, worldCoord)
+    mfnMesh = om.MFnMesh(GetDagPath(pShape))
+    numFaces = mfnMesh.numPolygons()
+
+    uUtil = om.MScriptUtil()
+    uUtil.createFromDouble(0.0)
+    uPtr = uUtil.asFloatPtr()
+
+    vUtil = om.MScriptUtil()
+    vUtil.createFromDouble(0.0)
+    vPtr = vUtil.asFloatPtr()
+
+    closestFaceIdx = -1
+    closestFaceVertIdx = -1
+    minLength = None
+
+    for faceIdx in range(numFaces):
+        vtxCount = mfnMesh.polygonVertexCount(faceIdx)
+        for vertIdx in range(vtxCount):
+            mfnMesh.getPolygonUV(faceIdx, vertIdx, uPtr, vPtr)
+            vertUV = [om.MScriptUtil(uPtr).asFloat(), om.MScriptUtil(vPtr).asFloat()]
+
+            thisLength = hazmath.GetDistance2D(vertUV, pUV)
+            if minLength is None or thisLength < minLength:
+                minLength = thisLength
+                closestFaceIdx = faceIdx
+                closestFaceVertIdx = vertIdx
+
+    # Finally convert to object relative vertex index
+    if closestFaceIdx > -1:
+        vertexList = om.MIntArray()
+
+        mfnMesh.getPolygonVertices(closestFaceIdx, vertexList)
+        meshVertIdx = vertexList[closestFaceVertIdx]
+        return '{}.vtx[{}]'.format(pShape, meshVertIdx)
+
     return None
+
+
 
 #https://gist.github.com/HamtaroDeluxe/67a97305ffbe284e5f104d8b4f9eb0f2
 #returns the closest vertex given a mesh and a position [x,y,z] in world space.
@@ -524,6 +560,21 @@ def CleanUnusedInfluensesOnAllSkinClusters():
     for s in skinList:
         CleanUnusedInfluenses(s)
     cmds.select(clear=True)
+
+def GetBlendShape(mesh):
+    if cmds.nodeType(mesh) in ('mesh', 'nurbsSurface', 'nurbsCurve'):
+        shapes = [mesh]
+    else:
+        shapes = cmds.listRelatives(mesh, shapes=True, path=True)
+
+    for shape in shapes:
+        history = cmds.listHistory(shape, groupLevels=True, pruneDagObjects=True)
+        if not history:
+            continue
+        blendShapes = cmds.ls(history, type='blendShape')
+        if blendShapes:
+            return blendShapes[0]
+    return None
 
 def GetSkinCluster(mesh):
     if cmds.nodeType(mesh) in ('mesh', 'nurbsSurface', 'nurbsCurve'):
