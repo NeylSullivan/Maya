@@ -1,3 +1,4 @@
+import os
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.OpenMaya as om
@@ -291,12 +292,23 @@ def ExportSkinning(skinData):
         fileName = sd[0] + '_WEIGHTS.xml'
         cmds.deformerWeights(fileName, ex=True, deformer=sd[2])
 
-def ImportSkinning(skinData):
+def ImportSkinning(skinData, pDeleteFilesAfterImport=False):
+    xmlFilePaths = []
     for sd in skinData:
         #print sd
         cmds.skinCluster(sd[3], sd[0], name=sd[2], tsb=True)
         fileName = sd[0] + '_WEIGHTS.xml'
-        cmds.deformerWeights(fileName, im=True, deformer=sd[2], method='index')
+        filePath = cmds.deformerWeights(fileName, im=True, deformer=sd[2], method='index')
+        if filePath:
+            xmlFilePaths.append(filePath)
+
+    if pDeleteFilesAfterImport:
+        for filePath in xmlFilePaths:
+            try:
+                os.remove(filePath)
+            except BaseException:
+                print("Error while deleting file ", filePath)
+
 
 def SetSkinMethodForAllSkinClusters(skinMethod):
     skinList = cmds.ls(type='skinCluster')

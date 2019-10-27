@@ -101,7 +101,8 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
     dazUtils.RenameNewSkeleton()
 
 
-    mayaUtils.ImportSkinning(skinData)          # import skinning
+    mayaUtils.ImportSkinning(skinData, pDeleteFilesAfterImport=True)          # import skinning
+
 
     cmds.select(clear=True)
 
@@ -113,11 +114,9 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
     dazUtils.MakeBendCorrectiveJoints()
     dazUtils.CreateIkJoints(pCreateIKConstraints)
 
-
     dazUtils.SetJointsVisualProperties()
 
-
-    dazUtils.OptimizeBodyMaterials() #FIXME <-- Check this, try to extract blendshape before baking history, then readd it
+    dazUtils.OptimizeBodyMaterials() # Check this, try to extract blendshape before baking history, then readd it. Done 26102019
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
 
