@@ -15,11 +15,11 @@ reload(hazmath)
 def DebugTimer(pName):
     start = time.clock()
     try:
-        print 'START:      *******     {}      *******'.format(pName)
+        print '\n\nSTART:      *******     {}      *******\n'.format(pName)
         yield
     finally:
         end = time.clock()
-        print 'FINISH:     *******     {}      *******\n      Time taken {:.2f} seconds'.format(pName, end - start)
+        print '\nFINISH:     *******     {}      *******\n      Time taken {:.2f} seconds\n\n'.format(pName, end - start)
 
 
 def CleanUnusedMaterials():
@@ -127,7 +127,7 @@ def UvCoordToWorld(U, V, mesh):
         except BaseException:
             continue #point not found!
 
-    return WSpoint
+    return [WSpoint[0], WSpoint[1], WSpoint[2]]
 
 
 def NotifyWithSound():
@@ -206,28 +206,28 @@ def SetAverageNormalsForBorderVertices(mesh):
 
 
 def SetVertexColorForBorderVertices():
-    print 'SetVertexColorForBorderVertices()'
-    skinList = cmds.ls(type='skinCluster')
-    cmds.select(clear=True)
-    borderVertsList = []
-
-    for s in skinList:
+    with DebugTimer('SetVertexColorForBorderVertices'):
+        skinList = cmds.ls(type='skinCluster')
         cmds.select(clear=True)
-        mesh = GetMeshFromSkinCluster(s)
-        cmds.select(mesh)
-        cmds.selectType(polymeshFace=True)
-        cmds.polySelectConstraint(mode=3, type=8, where=1) # to get border vertices
-        borderVerts = cmds.polyListComponentConversion(tv=True)
-        borderVertsList.extend(borderVerts)
-        cmds.polySelectConstraint(mode=0, sh=0, bo=0)
+        borderVertsList = []
+
+        for s in skinList:
+            cmds.select(clear=True)
+            mesh = GetMeshFromSkinCluster(s)
+            cmds.select(mesh)
+            cmds.selectType(polymeshFace=True)
+            cmds.polySelectConstraint(mode=3, type=8, where=1) # to get border vertices
+            borderVerts = cmds.polyListComponentConversion(tv=True)
+            borderVertsList.extend(borderVerts)
+            cmds.polySelectConstraint(mode=0, sh=0, bo=0)
+            cmds.select(clear=True)
+
+            allVerts = cmds.polyListComponentConversion(mesh, tv=True)
+            cmds.polyColorPerVertex(allVerts, rgb=(1.0, 1.0, 1.0))
+
+        cmds.select(borderVertsList)
+        cmds.polyColorPerVertex(borderVertsList, rgb=(0.0, 1.0, 1.0))
         cmds.select(clear=True)
-
-        allVerts = cmds.polyListComponentConversion(mesh, tv=True)
-        cmds.polyColorPerVertex(allVerts, rgb=(1.0, 1.0, 1.0))
-
-    cmds.select(borderVertsList)
-    cmds.polyColorPerVertex(borderVertsList, rgb=(0.0, 1.0, 1.0))
-    cmds.select(clear=True)
 
 
 def ParentAllGeometryToWorld():
@@ -299,27 +299,29 @@ def GetSkinExportData():
 
 
 def ExportSkinning(skinData):
-    for sd in skinData:
-        #print sd
-        fileName = sd[0] + '_WEIGHTS.xml'
-        cmds.deformerWeights(fileName, ex=True, deformer=sd[2])
+    with DebugTimer('Export skinning'):
+        for sd in skinData:
+            #print sd
+            fileName = sd[0] + '_WEIGHTS.xml'
+            cmds.deformerWeights(fileName, ex=True, deformer=sd[2])
 
 def ImportSkinning(skinData, pDeleteFilesAfterImport=False):
-    xmlFilePaths = []
-    for sd in skinData:
-        #print sd
-        cmds.skinCluster(sd[3], sd[0], name=sd[2], tsb=True)
-        fileName = sd[0] + '_WEIGHTS.xml'
-        filePath = cmds.deformerWeights(fileName, im=True, deformer=sd[2], method='index')
-        if filePath:
-            xmlFilePaths.append(filePath)
+    with DebugTimer('Import skinning'):
+        xmlFilePaths = []
+        for sd in skinData:
+            #print sd
+            cmds.skinCluster(sd[3], sd[0], name=sd[2], tsb=True)
+            fileName = sd[0] + '_WEIGHTS.xml'
+            filePath = cmds.deformerWeights(fileName, im=True, deformer=sd[2], method='index')
+            if filePath:
+                xmlFilePaths.append(filePath)
 
-    if pDeleteFilesAfterImport:
-        for filePath in xmlFilePaths:
-            try:
-                os.remove(filePath)
-            except BaseException:
-                print("Error while deleting file ", filePath)
+        if pDeleteFilesAfterImport:
+            for filePath in xmlFilePaths:
+                try:
+                    os.remove(filePath)
+                except BaseException:
+                    print("Error while deleting file ", filePath)
 
 
 def SetSkinMethodForAllSkinClusters(skinMethod):
@@ -374,13 +376,12 @@ def ResetBindPose(sel):
                 cmds.setAttr(skin+'.envelope', 1)
 
 def ResetBindPoseForAllSkinClusters():
-    skinList = cmds.ls(type='skinCluster')
-    print 'Resetting bind pose'
-    meshes = set(sum([cmds.skinCluster(c, q=1, g=1) for c in skinList], []))
-    for mesh in meshes:
-        transformList = cmds.listRelatives(mesh, parent=True)
-        ResetBindPose(transformList)
-    print 'Resetting bind pose: Done'
+    with DebugTimer('Resetting bind pose'):
+        skinList = cmds.ls(type='skinCluster')
+        meshes = set(sum([cmds.skinCluster(c, q=1, g=1) for c in skinList], []))
+        for mesh in meshes:
+            transformList = cmds.listRelatives(mesh, parent=True)
+            ResetBindPose(transformList)
 
 def GetMeshFromSkinCluster(skinClusterName):
     shape = cmds.skinCluster(skinClusterName, q=True, geometry=True)[0]
@@ -419,14 +420,13 @@ def RenameJoint(oldName, newName):
 
 
 def FixMaxInfluencesForAllSkinClusters(maxInfluences):
-    print 'Starting FixMaxInfluencesForAllSkinClusters'
-    start = time.clock()
-    cmds.select(clear=True)
-    skinList = cmds.ls(type='skinCluster')
-    for s in skinList:
-        FixMaxInfluencesForSkinCluster(s, maxInfluences)
-    cmds.select(clear=True)
-    print 'Finished FixMaxInfluencesForAllSkinClusters: time taken %.02f seconds' % (time.clock()-start)
+    with DebugTimer('FixMaxInfluencesForAllSkinClusters'):
+        cmds.select(clear=True)
+        skinList = cmds.ls(type='skinCluster')
+        for s in skinList:
+            FixMaxInfluencesForSkinCluster(s, maxInfluences)
+        cmds.select(clear=True)
+
 
 def FixMaxInfluencesForSkinCluster(skinClusterName, maxInfluences):
     k_EPSILON = 0.001
@@ -434,7 +434,7 @@ def FixMaxInfluencesForSkinCluster(skinClusterName, maxInfluences):
     shape = cmds.skinCluster(skinClusterName, q=True, geometry=True)[0]
     mesh = cmds.listRelatives(shape, parent=True)[0]
     vertsNum = cmds.polyEvaluate(mesh, v=1)
-    print 'Fixing max influences for skincluster "{0}". Mesh: {1} Target max influense: {2} Verts num: {3}'.format(skinClusterName, mesh, maxInfluences, vertsNum)
+
 
     cmds.skinPercent(skinClusterName, mesh, pruneWeights=k_EPSILON)
 
@@ -447,14 +447,13 @@ def FixMaxInfluencesForSkinCluster(skinClusterName, maxInfluences):
             fixedCounter += 1
             sortedWeights = sorted(Weights, reverse=True)
             PruneValue = sortedWeights[maxInfluences] + k_EPSILON
-            #print vertexName
-            #print sortedWeights
-            #print PruneValue
             cmds.skinPercent(skinClusterName, vertexName, pruneWeights=PruneValue)
     if fixedCounter > 0:
-        print 'Fixed {0} vertices'.format(fixedCounter)
+        resultMessage = 'Fixed {} vertices'.format(fixedCounter)
     else:
-        print 'No vertices found'
+        resultMessage = 'No vertices to fix'
+
+    print 'Skincluster "{}". Mesh: {} Target max influense: {} Verts num: {}. {}'.format(skinClusterName, mesh, maxInfluences, vertsNum, resultMessage)
 
 def TransferJointWeights(oldJointName, newJointName):
     cmds.select(clear=True)
@@ -554,12 +553,13 @@ def DestroyJointChildren(jointName):
 
 
 def DestroyUnusedJoints(pbDestroyToes):
-    DestroyMiddleJoint('lMetatarsals')
-    DestroyMiddleJoint('rMetatarsals')
-    DestroyMiddleJoint('pelvis')
-    if pbDestroyToes:
-        DestroyJointChildren('lToe')
-        DestroyJointChildren('rToe')
+    with DebugTimer('DestroyUnusedJoints'):
+        DestroyMiddleJoint('lMetatarsals')
+        DestroyMiddleJoint('rMetatarsals')
+        DestroyMiddleJoint('pelvis')
+        if pbDestroyToes:
+            DestroyJointChildren('lToe')
+            DestroyJointChildren('rToe')
 
 def CleanUnusedInfluenses(skinCluster):
     cmds.select(clear=True)
@@ -575,7 +575,13 @@ def CleanUnusedInfluenses(skinCluster):
             #print wi + ' REMOVE'
             cmds.skinCluster(skinCluster, e=True, removeInfluence=wi)
             unusedList.append(wi)
-    print '     For {0} removed {1} joints {2}'.format(skinCluster, len(unusedList), unusedList)
+
+    resultMessage = ''
+    if len(unusedList) > 10:
+        resultMessage = '{}... + {} joints'.format(unusedList[:10], len(unusedList) - 10)
+    elif unusedList:
+        resultMessage = unusedList
+    print '\tFor {0} removed {1} joints {2}'.format(skinCluster, len(unusedList), resultMessage)
 
 def CleanUnusedInfluensesOnAllSkinClusters():
     cmds.select(clear=True)
@@ -704,6 +710,11 @@ def AppendShadingGroupByMatWildcard(shape, matTo, matFrom):
 
 
 def AppendShadingGroupByMat(shape, matTo, matFrom):
+    shapeMats = cmds.listConnections(cmds.listHistory(shape, f=1), type='lambert') or []
+    if matTo not in shapeMats:
+        print 'AppendShadingGroupByMat: material={} not in shape={}. Aborting.'.format(matTo, shape)
+        return
+
     targetShadingGroup = cmds.listConnections(matTo, type='shadingEngine')[0]
     fromFaces = GetFacesByMat(shape, matFrom)
     print 'AppendShadingGroupByMat shape={0} to={1} from={2}'.format(shape, matTo, matFrom)

@@ -62,7 +62,7 @@ def OptimizeBodyMeshForBaking():
 #
 #   MAIN
 #
-def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, pCreateIKConstraints=False):
+def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalMorphs=False, pCreateIKConstraints=False):
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -71,21 +71,15 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
     cmds.select(clear=True)
 
     dazUtils.RemoveObjectsByWildcard(['Fingernails_*'], 'transform')
-
-
+    mayaUtils.ParentAllGeometryToWorld()
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
     mayaUtils.DestroyUnusedJoints(pbCollapseToes)
-    mayaUtils.ParentAllGeometryToWorld()
     mayaUtils.ResetBindPoseForAllSkinClusters()
     mayaUtils.SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
-
-    if pSubdivideImportantBodyParts:
-        dazUtils.SubdivideImportantBodyParts()
 
 
     dazUtils.RenameSkeletonJoints()
     oldJoints = mayaUtils.GetHierarchy('Root')
-
 
     # collect data for skin export
     skinData = mayaUtils.GetSkinExportData()  # transform, shape, skincluster, jointsList
@@ -100,11 +94,13 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
     cmds.delete(oldJoints)
     dazUtils.RenameNewSkeleton()
 
+    if pLoadExternalMorphs: # Do it when mesh unskinned
+        dazUtils.TryLoadExternalBodymorph()
 
     mayaUtils.ImportSkinning(skinData, pDeleteFilesAfterImport=True)          # import skinning
 
-
     cmds.select(clear=True)
+
 
     dazUtils.AddBreastJoints() ################ should nipples need to be skinned or it just points for ue4 sockets?
 
@@ -116,6 +112,9 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
 
     dazUtils.SetJointsVisualProperties()
 
+    if pLoadExternalMorphs:
+        dazUtils.TryLoadExternalMorphTargets()
+
     dazUtils.OptimizeBodyMaterials() # Check this, try to extract blendshape before baking history, then readd it. Done 26102019
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
@@ -124,8 +123,7 @@ def OptimizeSkeleton(pbCollapseToes=False, pSubdivideImportantBodyParts=False, p
 
     dazUtils.RenameAndCombineMeshes()
 
-
-    dazUtils.CutMeshAndOffsetUVs()
+    dazUtils.SetVertexColorForUVBorder()
 
     dazUtils.PostprocessGenitaliaObject('HazardFemaleGenitalia*')
 

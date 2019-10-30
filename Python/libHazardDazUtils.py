@@ -1,12 +1,14 @@
 import maya.cmds as cmds
-import time
+import os
 import libHazardMathUtils as hazMath
 import libHazardMayaUtils as mayaUtils
 import libHazardSelectionUtils as selUtils
+import libHazardMorphTargetProcessing as hazMtp
 
 reload(hazMath)
 reload(mayaUtils)
 reload(selUtils)
+reload(hazMtp)
 
 
 #
@@ -14,6 +16,68 @@ reload(selUtils)
 #
 k_LEFT_NIPPLE_UV = [0.7961298823356628, 0.8489649891853333]
 k_RIGHT_NIPPLE_UV = [0.7028849720954895, 0.8489649891853333]
+
+def TryLoadExternalMorphTargets():
+    with mayaUtils.DebugTimer('TryLoadExternalMorphTargets'):
+        mainMesh = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
+
+        if mainMesh is None:
+            print 'Error! Can`t find body(Torso) mesh'
+            return
+
+
+    subDirs = [dI for dI in os.listdir(hazMtp.SRC_DIR) if os.path.isdir(os.path.join(hazMtp.SRC_DIR, dI))]
+
+    for subDir in subDirs:
+        if not subDir.startswith('MT_'):
+            print 'SKIPPING directory {}. Reason - unresolved name (should starts with \'MT_\')'.format(subDir)
+            continue
+
+        fullSubdirPath = os.path.join(hazMtp.SRC_DIR, subDir)
+        morphMeshFile = os.path.join(fullSubdirPath, hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
+        morphMeshExist = os.path.exists(morphMeshFile)
+        print 'Dir: {} SubD mesh: {} Exist: {}'.format(subDir, morphMeshFile, morphMeshExist)
+        if not morphMeshExist:
+            print 'SKIPPING...'
+            continue
+
+        morphMesh = cmds.file(morphMeshFile, i=True, returnNewNodes=True)[0]
+        morphMesh = cmds.rename(morphMesh, subDir) # name new blendshape as it folder
+        cmds.xform(morphMesh, absolute=True, translation=[0, 0, 100])
+
+        cmds.blendShape([morphMesh, mainMesh]) # TODO does it create a new deformer or add to existing?
+        cmds.delete(morphMesh)
+
+
+
+
+
+def TryLoadExternalBodymorph():
+    with mayaUtils.DebugTimer('TryLoadExternalBodymorph'):
+        mainMesh = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
+
+        if mainMesh is None:
+            print 'Error! Can`t find body(Torso) mesh'
+            return
+        #Mesh unskinned on this stage so we can safely delete all history
+        cmds.delete(mainMesh, constructionHistory=True)
+
+        bodyMorphFile = os.path.join(hazMtp.SRC_DIR, hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
+        bodyMorphExist = os.path.exists(bodyMorphFile)
+        print 'Body morph file: {} Exist: {}'.format(bodyMorphFile, bodyMorphExist)
+        if not bodyMorphExist:
+            print 'ABORTED: no body morph file found'
+            return
+
+        morphMesh = cmds.file(bodyMorphFile, i=True, returnNewNodes=True)[0]
+        morphMesh = cmds.rename(morphMesh, 'BodyMorph')
+        cmds.xform(morphMesh, absolute=True, translation=[0, 0, 100])
+
+        bs = cmds.blendShape([morphMesh, mainMesh])
+        cmds.blendShape(bs, edit=True, weight=[0, 1.0])
+
+        cmds.delete(mainMesh, constructionHistory=True)
+        cmds.delete(morphMesh)
 
 def PostprocessGenitaliaObject(genitaliaMeshWildcard):
     print 'PostprocessGenitaliaObject(genitaliaMeshWildcard={0})'.format(genitaliaMeshWildcard)
@@ -87,94 +151,59 @@ def MaskShellsEdgesForTesselation(shape, pUVtile):
     cmds.select(clear=True)
     print 'MaskShellsEdgesForTesselation shape: {0}, pUVtile: {1}'.format(shape, pUVtile)
     matched_faces = selUtils.GetFacesInUTile(shape, pUVtile)
-
     borderVerts = cmds.polyListComponentConversion(matched_faces, ff=True, tv=True, bo=True)
     borderFaces = cmds.polyListComponentConversion(borderVerts, fv=True, tf=True) #sort of grow extrude
     borderVerts = cmds.polyListComponentConversion(borderFaces, ff=True, tv=True) #we need wider row to mask tessellation in ue4
 
-    cmds.polyColorPerVertex(borderVerts, rgb=(0.0, 1.0, 1.0)) #fill verts red=0 color
-    #cmds.bakePartialHistory(shape, prePostDeformers=True) # No need to bake after every masking step as geometry not changed, just vertex color
+    if borderVerts:
+        cmds.polyColorPerVertex(borderVerts, colorR=0.0) #fill verts red=0 color
+    else:
+        print 'No border verts detected. Skipping polyColorPerVertex'
     cmds.select(clear=True)
 
 
-def CutMeshAndOffsetUVs():
-    cmds.select(clear=True)
-    shape = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
-    MaskShellsEdgesForTesselation(shape, 0)
-    MaskShellsEdgesForTesselation(shape, 1)
-    MaskShellsEdgesForTesselation(shape, 2)
-    MaskShellsEdgesForTesselation(shape, 3)
-    MaskShellsEdgesForTesselation(shape, 4)
+def SetVertexColorForUVBorder():
+    with mayaUtils.DebugTimer('SetVertexColorForUVBorder'):
+        cmds.select(clear=True)
+        shape = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
+        MaskShellsEdgesForTesselation(shape, 0)
+        MaskShellsEdgesForTesselation(shape, 1)
+        MaskShellsEdgesForTesselation(shape, 2)
+        MaskShellsEdgesForTesselation(shape, 3)
+        MaskShellsEdgesForTesselation(shape, 4)
 
-    #mayaUtils.SetVertexColorForBorderVertices()do it manually
-    #mayaUtils.SetAverageNormalsForBorderVertices(shape) #dont need it anymore
-    cmds.bakePartialHistory(shape, prePostDeformers=True)
+        #mayaUtils.SetVertexColorForBorderVertices()do it manually
+        #mayaUtils.SetAverageNormalsForBorderVertices(shape) #dont need it anymore
+        cmds.bakePartialHistory(shape, prePostDeformers=True)
 
 def RenameAndCombineMeshes():
-    print 'RenameAndCombineMeshes()'
+    with mayaUtils.DebugTimer('RenameAndCombineMeshes'):
+        #Main
+        bodyList = cmds.ls('Genesis8FemaleFBX*Shape', type='transform', objectsOnly=True, long=True)
+        if bodyList:
+            cmds.rename(bodyList[0], 'FemaleBody')
 
-    #Main
-    bodyList = cmds.ls('Genesis8FemaleFBX*Shape', type='transform', objectsOnly=True, long=True)
-    if bodyList:
-        cmds.rename(bodyList[0], 'FemaleBody')
+        #
+        #EYES
+        #
+        eyesList = cmds.ls('*Eyes*', type='transform', objectsOnly=True, long=True)
 
-    #
-    #EYES
-    #
-    eyesList = cmds.ls('*Eyes*', type='transform', objectsOnly=True, long=True)
-
-    if eyesList and len(eyesList) > 1:
-        print '\tCombining {0}'.format(eyesList)
-        cmds.polyUniteSkinned(eyesList, ch=False)
-        cmds.rename('FemaleEyes')
-        cmds.select(clear=True)
-        #clear orphane transforms if exist
-        for o in eyesList:
-            if cmds.objExists(o):
-                cmds.delete(o)
-    else:
-        print '\t No EYES meshes to combine'
-
-    #Main
-    eyelashesList = cmds.ls('HazardEyelashes_*Shape', type='transform', objectsOnly=True, long=True)
-    if eyelashesList:
-        cmds.rename(eyelashesList[0], 'FemaleEyelashes')
-
-    #
-    #MOUTH
-    #
-    mouthList = cmds.ls('*_MOUTH', type='transform', objectsOnly=True, long=True)
-    print mouthList
-
-    teethList = cmds.ls('Teeth*', type='transform', objectsOnly=True, long=True)
-    print teethList
-    mayaUtils.AssignObjectListToShader(teethList, 'Mouth')
-
-    teethMouthList = []
-    if mouthList:
-        teethMouthList.extend(mouthList)
-    if teethList:
-        teethMouthList.extend(teethList)
-
-
-    if teethMouthList:
-        if len(teethMouthList) > 1: #multiple objects
-            print '\tCombining {0}'.format(teethMouthList)
-            cmds.polyUniteSkinned(teethMouthList, ch=False)
-            cmds.rename('FemaleMouth')
+        if eyesList and len(eyesList) > 1:
+            print '\tCombining {0}'.format(eyesList)
+            cmds.polyUniteSkinned(eyesList, ch=False)
+            cmds.rename('FemaleEyes')
             cmds.select(clear=True)
             #clear orphane transforms if exist
-            for o in teethMouthList:
+            for o in eyesList:
                 if cmds.objExists(o):
                     cmds.delete(o)
         else:
-            # nothing to combine, just rename single object
-            cmds.rename(teethMouthList, 'FemaleMouth')
-            cmds.select(clear=True)
+            print '\t No EYES meshes to combine'
 
-    else:
-        print '\t No MOUTH meshes to combine'
-
+        #Main
+        eyelashesList = cmds.ls('HazardEyelashes_*Shape', type='transform', objectsOnly=True, long=True)
+        if eyelashesList:
+            cmds.rename(eyelashesList[0], 'FemaleEyelashes')
 
 
 def RemoveObjectsByWildcard(objectsList, objectType, rootOnly=True):
@@ -189,38 +218,38 @@ def RemoveObjectsByWildcard(objectsList, objectType, rootOnly=True):
                 cmds.delete(r)
 
 def AddBreastJoints():
-    print 'AddBreastJoints()'
-    cmds.select(clear=True)
-    srcJointslist = ['Pectoral_L', 'Pectoral_R']
-    for j in srcJointslist:
-        newJointName = j + '_JIGGLE'
-        cmds.select(j)
-        cmds.joint(name=newJointName)
-        cmds.xform(relative=True, translation=[3, 0, 0])
+    with mayaUtils.DebugTimer('AddBreastJoints'):
+        cmds.select(clear=True)
+        srcJointslist = ['Pectoral_L', 'Pectoral_R']
+        for j in srcJointslist:
+            newJointName = j + '_JIGGLE'
+            cmds.select(j)
+            cmds.joint(name=newJointName)
+            cmds.xform(relative=True, translation=[3, 0, 0])
 
-    #Add Nipple Joints And Realighn Breast
-    shape = mayaUtils.FindShapeByMat('Torso')#temp shape for finding nipples coordinates
-    tempShape = cmds.duplicate(shape)[0]
-    tempShape = cmds.rename(tempShape, 'TEMP_TORSO')
-    mayaUtils.DeleteFacesByMat(tempShape, ['Torso'], bInvert=True)
-    cmds.bakePartialHistory(tempShape, preCache=True)
+        #Add Nipple Joints And Realighn Breast
+        shape = mayaUtils.FindShapeByMat('Torso')#temp shape for finding nipples coordinates
+        tempShape = cmds.duplicate(shape)[0]
+        tempShape = cmds.rename(tempShape, 'TEMP_TORSO')
+        mayaUtils.DeleteFacesByMat(tempShape, ['Torso'], bInvert=True)
+        cmds.bakePartialHistory(tempShape, preCache=True)
 
-    AddNippleJointAndRealighnBreast('Nipple_L', 'Pectoral_L_JIGGLE', k_LEFT_NIPPLE_UV, tempShape)
-    AddNippleJointAndRealighnBreast('Nipple_R', 'Pectoral_R_JIGGLE', k_RIGHT_NIPPLE_UV, tempShape)
+        AddNippleJointAndRealighnBreast('Nipple_L', 'Pectoral_L_JIGGLE', k_LEFT_NIPPLE_UV, tempShape)
+        AddNippleJointAndRealighnBreast('Nipple_R', 'Pectoral_R_JIGGLE', k_RIGHT_NIPPLE_UV, tempShape)
 
-    cmds.delete(tempShape)
+        cmds.delete(tempShape)
 
-    #transfer weights to new jiggle joints
-    for j in srcJointslist:
-        newJointName = j + '_JIGGLE'
-        skinList = cmds.ls(type='skinCluster')
-        for skinClusterName in skinList:
-            cmds.select(clear=True)
-            influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
-            if j in influences:
-                cmds.skinCluster(skinClusterName, e=True, addInfluence=newJointName, weight=0.0)
-                continue
-        mayaUtils.TransferJointWeights(j, newJointName)
+        #transfer weights to new jiggle joints
+        for j in srcJointslist:
+            newJointName = j + '_JIGGLE'
+            skinList = cmds.ls(type='skinCluster')
+            for skinClusterName in skinList:
+                cmds.select(clear=True)
+                influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
+                if j in influences:
+                    cmds.skinCluster(skinClusterName, e=True, addInfluence=newJointName, weight=0.0)
+                    continue
+            mayaUtils.TransferJointWeights(j, newJointName)
 
 
 def AddNippleJointAndRealighnBreast(newJointName, parentName, uvPos, referenceShape):
@@ -229,7 +258,7 @@ def AddNippleJointAndRealighnBreast(newJointName, parentName, uvPos, referenceSh
     newJointName = cmds.joint(name=newJointName) #not final nipple joint!
 
     f = mayaUtils.UvCoordToWorld(uvPos[0], uvPos[1], referenceShape)
-    print 'AddNippleJointAndRealighnBreast(): {0} position is {1}'.format(newJointName, f)
+    print 'AddNippleJointAndRealighnBreast(): {} position is {}'.format(newJointName, f)
     cmds.move(f[0], f[1], f[2], newJointName, absolute=True)
     cmds.parent(newJointName, world=True)
     constraint = cmds.aimConstraint(newJointName, parentName, worldUpType='vector', worldUpVector=[0, 1, 0])
@@ -423,70 +452,58 @@ def RenameChildren(name):
 
 
 def RenameSkeletonJoints():
-    print 'Renaming skeleton joints'
+    with mayaUtils.DebugTimer('RenameSkeletonJoints'):
+        renamingDictionary = GetRenamingDict()
+        for oldName, newName in renamingDictionary.iteritems():
+            mayaUtils.RenameJoint(oldName, newName)
 
-    renamingDictionary = GetRenamingDict()
-
-    for oldName, newName in renamingDictionary.iteritems():
-        mayaUtils.RenameJoint(oldName, newName)
-
-    RenameChildren('LowerFaceRig')
-    RenameChildren('UpperFaceRig')
+        RenameChildren('LowerFaceRig')
+        RenameChildren('UpperFaceRig')
 
 
 def OptimizeBodyMaterials():
-    print 'Starting body materials optimization'
-    start = time.clock()
+    with mayaUtils.DebugTimer('OptimizeBodyMaterials'):
+        shape = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
 
-    shape = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
+        if shape is None:
+            print 'Error! Can`t find body(Torso) shape'
+            return
 
-    if shape is None:
-        print 'Error! Can`t find body(Torso) shape'
-        return
+        mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'Lips')
+        mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'Ears')
+        mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'EyeSocket')
 
+        mayaUtils.AppendShadingGroupByMat(shape, 'Legs', 'Toenails')
+        mayaUtils.AppendShadingGroupByMat(shape, 'Arms', 'Fingernails')
 
-    mayaUtils.AppendShadingGroupByMat(shape, 'Mouth', 'Teeth')
-    mouthShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['Mouth', 'Teeth'], '_MOUTH')
+        mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Legs')
+        mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Arms')
+        mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Face')
 
-    eyesShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['EyeMoisture', 'Cornea'], '_Eyes')
+        mayaUtils.AppendShadingGroupByMat(shape, 'Mouth', 'Teeth')
 
-    unusedEyesFaces = selUtils.GetFacesOutsideCenterUVRange(eyesShape)
-    cmds.delete(unusedEyesFaces)
+        mayaUtils.AppendShadingGroupByMat(shape, 'EyeMoisture', 'Cornea') # useful eyes
+        mayaUtils.AppendShadingGroupByMat(shape, 'Pupils', 'Irises') # not used
+        mayaUtils.AppendShadingGroupByMat(shape, 'Pupils', 'Sclera') # not used
 
+        eyesShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['EyeMoisture', 'Pupils'], '_Eyes')
 
-    unusedEyesShape = mayaUtils.DetachSkinnedMeshByMat(shape, ['Pupils', 'Irises', 'Sclera'], '_EyesUnused')
-    cmds.delete(unusedEyesShape)
+        mayaUtils.DeleteFacesByMat(eyesShape, ['Pupils'])
+        unusedEyesFaces = selUtils.GetFacesOutsideCenterUVRange(eyesShape)
+        cmds.delete(unusedEyesFaces)
 
-    mayaUtils.AppendShadingGroupByMat(eyesShape, 'EyeMoisture', 'Cornea')
+        mayaUtils.RenameMaterial('Torso', 'Body')
+        mayaUtils.RenameMaterial('EyeMoisture', 'Eyes')
 
-    mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'Lips')
-    mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'Ears')
-    mayaUtils.AppendShadingGroupByMat(shape, 'Face', 'EyeSocket')
+        mayaUtils.RenameMaterial('EyeLashes*', 'FemaleEyeLashes')
 
-    mayaUtils.AppendShadingGroupByMat(shape, 'Legs', 'Toenails')
-    mayaUtils.AppendShadingGroupByMat(shape, 'Arms', 'Fingernails')
+        SafeBakePartialHistoryKeepBlendShapes(shape)
 
-    mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Legs')
-    mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Arms')
-    mayaUtils.AppendShadingGroupByMat(shape, 'Torso', 'Face')
+        if eyesShape:
+            cmds.bakePartialHistory(eyesShape, prePostDeformers=True)
 
-    mayaUtils.RenameMaterial('Torso', 'Body')
-    mayaUtils.RenameMaterial('EyeMoisture', 'Eyes')
+        mayaUtils.CleanUnusedInfluensesOnAllSkinClusters()
 
-    mayaUtils.RenameMaterial('EyeLashes*', 'FemaleEyeLashes')
-
-
-    print 'OptimizeBodyMaterials() PAUSED'
-
-    SafeBakePartialHistoryKeepBlendShapes(shape)
-    if mouthShape:
-        cmds.bakePartialHistory(mouthShape, prePostDeformers=True)
-    if eyesShape:
-        cmds.bakePartialHistory(eyesShape, prePostDeformers=True)
-
-    mayaUtils.CleanUnusedInfluensesOnAllSkinClusters()
-
-    print 'Finished body materials optimization: time taken %.02f seconds' % (time.clock()-start)
 
 def SafeBakePartialHistoryKeepBlendShapes(pShape):
     print 'SafeBakePartialHistoryKeepBlendShapes(pShape=\'{}\')'.format(pShape)
@@ -535,17 +552,18 @@ def SafeBakePartialHistoryKeepBlendShapes(pShape):
 
 
 def CreateIkJoints(pCreateConstraint=True):
-    CreateIkJoint('Camera', 'Root', 'IK_Camera', pCreateConstraint)
-    CreateIkJoint('Root', 'Root', 'IK_Foot_Root')
-    CreateIkJoint('Foot_R', 'IK_Foot_Root', 'IK_Foot_R', pCreateConstraint)
-    CreateIkJoint('Foot_L', 'IK_Foot_Root', 'IK_Foot_L', pCreateConstraint)
+    with mayaUtils.DebugTimer('CreateIkJoints'):
+        CreateIkJoint('Camera', 'Root', 'IK_Camera', pCreateConstraint)
+        CreateIkJoint('Root', 'Root', 'IK_Foot_Root')
+        CreateIkJoint('Foot_R', 'IK_Foot_Root', 'IK_Foot_R', pCreateConstraint)
+        CreateIkJoint('Foot_L', 'IK_Foot_Root', 'IK_Foot_L', pCreateConstraint)
 
-    CreateIkJoint('Root', 'Root', 'IK_Hands_Root', False)
-    CreateIkJoint('Hand_R', 'IK_Hands_Root', 'IK_Weapon_Root', pCreateConstraint)
-    CreateIkJoint('Hand_R', 'IK_Weapon_Root', 'IK_Hand_R', pCreateConstraint)
-    CreateIkJoint('Hand_L', 'IK_Weapon_Root', 'IK_Hand_L', pCreateConstraint)
+        CreateIkJoint('Root', 'Root', 'IK_Hands_Root', False)
+        CreateIkJoint('Hand_R', 'IK_Hands_Root', 'IK_Weapon_Root', pCreateConstraint)
+        CreateIkJoint('Hand_R', 'IK_Weapon_Root', 'IK_Hand_R', pCreateConstraint)
+        CreateIkJoint('Hand_L', 'IK_Weapon_Root', 'IK_Hand_L', pCreateConstraint)
 
-    CreateIkJoint('Hips', 'Root', 'IK_Hips', pCreateConstraint)
+        CreateIkJoint('Hips', 'Root', 'IK_Hips', pCreateConstraint)
 
 
 def CreateIkJoint(referenceJnt, parentJnt, ikJntName, bCreateConstraint=False):
@@ -570,151 +588,148 @@ def CreateIkJoint(referenceJnt, parentJnt, ikJntName, bCreateConstraint=False):
 
 
 def DuplicateSkeletonJoints(oldSkeletonRoot, newJointsPrefix):
-    print 'Duplicating skeleton'
+    with mayaUtils.DebugTimer('Duplicating skeleton'):
+        jointsList = mayaUtils.GetHierarchy(oldSkeletonRoot)
+        #print jointsList
 
-    jointsList = mayaUtils.GetHierarchy(oldSkeletonRoot)
-    #print jointsList
+        for j in jointsList:
+            #print j
+            pos = cmds.joint(j, q=True, absolute=True)
+            oldName = cmds.joint(j, q=True, name=True)
+            oldOrientation = cmds.joint(j, q=True, orientation=True)
 
-    for j in jointsList:
-        #print j
-        pos = cmds.joint(j, q=True, absolute=True)
-        oldName = cmds.joint(j, q=True, name=True)
-        oldOrientation = cmds.joint(j, q=True, orientation=True)
+            newName = newJointsPrefix + oldName
 
-        newName = newJointsPrefix + oldName
-
-        cmds.select(clear=True)
-        newJoint = cmds.joint(p=pos, name=newName)
-        cmds.xform(newJoint, r=True, ro=oldOrientation)
+            cmds.select(clear=True)
+            newJoint = cmds.joint(p=pos, name=newName)
+            cmds.xform(newJoint, r=True, ro=oldOrientation)
 
 
 def FixNewJointsOrientation():
-    print 'Fixing joint orientation'
+    with mayaUtils.DebugTimer('FixNewJointsOrientation'):
+        # Root
+        mayaUtils.RotateJoint("DAZ_Root", 00, 0, 0)
 
-    # Root
-    mayaUtils.RotateJoint("DAZ_Root", 00, 0, 0)
+        # Spine
+        mayaUtils.RotateJoint("DAZ_Hips", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_Spine_1", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_Spine_2", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_Spine_3", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_Spine_4", 90, 0, 90)
 
-    # Spine
-    mayaUtils.RotateJoint("DAZ_Hips", 90, 0, 90)
-    mayaUtils.RotateJoint("DAZ_Spine_1", 90, 0, 90)
-    mayaUtils.RotateJoint("DAZ_Spine_2", 90, 0, 90)
-    mayaUtils.RotateJoint("DAZ_Spine_3", 90, 0, 90)
-    mayaUtils.RotateJoint("DAZ_Spine_4", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_Pectoral_L", 0, -90, 0)
+        mayaUtils.RotateJoint("DAZ_Pectoral_R", 0, -90, 0)
 
-    mayaUtils.RotateJoint("DAZ_Pectoral_L", 0, -90, 0)
-    mayaUtils.RotateJoint("DAZ_Pectoral_R", 0, -90, 0)
+        mayaUtils.RotateJoint("DAZ_Neck_1", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_Neck_2", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_Head", 90, 0, 90)
 
-    mayaUtils.RotateJoint("DAZ_Neck_1", 90, 0, 90)
-    mayaUtils.RotateJoint("DAZ_Neck_2", 90, 0, 90)
-    mayaUtils.RotateJoint("DAZ_Head", 90, 0, 90)
+        # Leg Left
+        mayaUtils.RotateJoint("DAZ_UpLeg_L", 90, 0, -90)
+        mayaUtils.RotateJoint("DAZ_UpLeg_L_TWIST", 90, 0, -90)
+        mayaUtils.RotateJoint("DAZ_Leg_L", 90, 0, -90)
+        # copy rotation from Leg
+        cmds.xform('DAZ_Foot_L', absolute=True, rotation=cmds.xform('DAZ_Leg_L', q=True, absolute=True, rotation=True))
+        mayaUtils.RotateJoint("DAZ_Toe_L", 0, -90, 0)
 
-    # Leg Left
-    mayaUtils.RotateJoint("DAZ_UpLeg_L", 90, 0, -90)
-    mayaUtils.RotateJoint("DAZ_UpLeg_L_TWIST", 90, 0, -90)
-    mayaUtils.RotateJoint("DAZ_Leg_L", 90, 0, -90)
-    # copy rotation from Leg
-    cmds.xform('DAZ_Foot_L', absolute=True, rotation=cmds.xform('DAZ_Leg_L', q=True, absolute=True, rotation=True))
-    mayaUtils.RotateJoint("DAZ_Toe_L", 0, -90, 0)
+        # Leg Right
+        mayaUtils.RotateJoint("DAZ_UpLeg_R", 90, 0, -90)
+        mayaUtils.RotateJoint("DAZ_UpLeg_R_TWIST", 90, 0, -90)
+        mayaUtils.RotateJoint("DAZ_Leg_R", 90, 0, -90)
+        # copy rotation from Leg
+        cmds.xform('DAZ_Foot_R', absolute=True, rotation=cmds.xform('DAZ_Leg_R', q=True, absolute=True, rotation=True))
+        mayaUtils.RotateJoint("DAZ_Toe_R", 0, -90, 0)
 
-    # Leg Right
-    mayaUtils.RotateJoint("DAZ_UpLeg_R", 90, 0, -90)
-    mayaUtils.RotateJoint("DAZ_UpLeg_R_TWIST", 90, 0, -90)
-    mayaUtils.RotateJoint("DAZ_Leg_R", 90, 0, -90)
-    # copy rotation from Leg
-    cmds.xform('DAZ_Foot_R', absolute=True, rotation=cmds.xform('DAZ_Leg_R', q=True, absolute=True, rotation=True))
-    mayaUtils.RotateJoint("DAZ_Toe_R", 0, -90, 0)
+        # Arm Left
 
-    # Arm Left
+        mayaUtils.RotateJoint("DAZ_Clavicle_L", 90)
+        mayaUtils.RotateJoint("DAZ_Arm_L", 90)
+        mayaUtils.RotateJoint("DAZ_Arm_L_TWIST", 90)
+        mayaUtils.RotateJoint("DAZ_ForeArm_L", 90)
+        mayaUtils.RotateJoint("DAZ_ForeArm_L_TWIST", 90)
+        mayaUtils.RotateJoint("DAZ_Hand_L", 90)
 
-    mayaUtils.RotateJoint("DAZ_Clavicle_L", 90)
-    mayaUtils.RotateJoint("DAZ_Arm_L", 90)
-    mayaUtils.RotateJoint("DAZ_Arm_L_TWIST", 90)
-    mayaUtils.RotateJoint("DAZ_ForeArm_L", 90)
-    mayaUtils.RotateJoint("DAZ_ForeArm_L_TWIST", 90)
-    mayaUtils.RotateJoint("DAZ_Hand_L", 90)
+        mayaUtils.RotateJoint('DAZ_HandThumb1_L', 180)
+        mayaUtils.RotateJoint('DAZ_HandThumb2_L', 180)
+        mayaUtils.RotateJoint('DAZ_HandThumb3_L', 180)
 
-    mayaUtils.RotateJoint('DAZ_HandThumb1_L', 180)
-    mayaUtils.RotateJoint('DAZ_HandThumb2_L', 180)
-    mayaUtils.RotateJoint('DAZ_HandThumb3_L', 180)
+        mayaUtils.RotateJoint('DAZ_HandIndex0_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandIndex1_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandIndex2_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandIndex3_L', 90)
 
-    mayaUtils.RotateJoint('DAZ_HandIndex0_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandIndex1_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandIndex2_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandIndex3_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandMid0_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandMid1_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandMid2_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandMid3_L', 90)
 
-    mayaUtils.RotateJoint('DAZ_HandMid0_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandMid1_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandMid2_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandMid3_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandRing0_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandRing1_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandRing2_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandRing3_L', 90)
 
-    mayaUtils.RotateJoint('DAZ_HandRing0_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandRing1_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandRing2_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandRing3_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandPinky0_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandPinky1_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandPinky2_L', 90)
+        mayaUtils.RotateJoint('DAZ_HandPinky3_L', 90)
 
-    mayaUtils.RotateJoint('DAZ_HandPinky0_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandPinky1_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandPinky2_L', 90)
-    mayaUtils.RotateJoint('DAZ_HandPinky3_L', 90)
+        # Arm Right
 
-    # Arm Right
+        mayaUtils.RotateJoint("DAZ_Clavicle_R", -90, 180)
+        mayaUtils.RotateJoint("DAZ_Arm_R", -90, 180)
+        mayaUtils.RotateJoint("DAZ_Arm_R_TWIST", -90, 180)
+        mayaUtils.RotateJoint("DAZ_ForeArm_R", -90, 180)
+        mayaUtils.RotateJoint("DAZ_ForeArm_R_TWIST", -90, 180)
+        mayaUtils.RotateJoint("DAZ_Hand_R", -90, 180)
 
-    mayaUtils.RotateJoint("DAZ_Clavicle_R", -90, 180)
-    mayaUtils.RotateJoint("DAZ_Arm_R", -90, 180)
-    mayaUtils.RotateJoint("DAZ_Arm_R_TWIST", -90, 180)
-    mayaUtils.RotateJoint("DAZ_ForeArm_R", -90, 180)
-    mayaUtils.RotateJoint("DAZ_ForeArm_R_TWIST", -90, 180)
-    mayaUtils.RotateJoint("DAZ_Hand_R", -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandThumb1_R', -180, 180)
+        mayaUtils.RotateJoint('DAZ_HandThumb2_R', -180, 180)
+        mayaUtils.RotateJoint('DAZ_HandThumb3_R', -180, 180)
 
-    mayaUtils.RotateJoint('DAZ_HandThumb1_R', -180, 180)
-    mayaUtils.RotateJoint('DAZ_HandThumb2_R', -180, 180)
-    mayaUtils.RotateJoint('DAZ_HandThumb3_R', -180, 180)
+        mayaUtils.RotateJoint('DAZ_HandIndex0_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandIndex1_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandIndex2_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandIndex3_R', -90, 180)
 
-    mayaUtils.RotateJoint('DAZ_HandIndex0_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandIndex1_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandIndex2_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandIndex3_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandMid0_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandMid1_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandMid2_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandMid3_R', -90, 180)
 
-    mayaUtils.RotateJoint('DAZ_HandMid0_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandMid1_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandMid2_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandMid3_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandRing0_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandRing1_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandRing2_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandRing3_R', -90, 180)
 
-    mayaUtils.RotateJoint('DAZ_HandRing0_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandRing1_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandRing2_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandRing3_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandPinky0_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandPinky1_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandPinky2_R', -90, 180)
+        mayaUtils.RotateJoint('DAZ_HandPinky3_R', -90, 180)
 
-    mayaUtils.RotateJoint('DAZ_HandPinky0_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandPinky1_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandPinky2_R', -90, 180)
-    mayaUtils.RotateJoint('DAZ_HandPinky3_R', -90, 180)
-
-    #Toes
-    for t in ['ToeBig1', 'ToeBig2', 'ToeIndex1', 'ToeIndex2', 'ToeMid1', 'ToeMid2', 'ToeRing1', 'ToeRing2', 'ToePinky1', 'ToePinky2']:
-        mayaUtils.RotateJoint('DAZ_'+t+'_L', 0, -90)
-        mayaUtils.RotateJoint('DAZ_'+t+'_R', 0, -90)
+        #Toes
+        for t in ['ToeBig1', 'ToeBig2', 'ToeIndex1', 'ToeIndex2', 'ToeMid1', 'ToeMid2', 'ToeRing1', 'ToeRing2', 'ToePinky1', 'ToePinky2']:
+            mayaUtils.RotateJoint('DAZ_'+t+'_L', 0, -90)
+            mayaUtils.RotateJoint('DAZ_'+t+'_R', 0, -90)
 
 
-    # facial rig
-    mayaUtils.RotateJoint("DAZ_Tongue_1", 0, -90, 0)
-    mayaUtils.RotateJoint("DAZ_Tongue_2", 0, -90, 0)
-    mayaUtils.RotateJoint("DAZ_Tongue_3", 0, -90, 0)
-    mayaUtils.RotateJoint("DAZ_Tongue_4", 0, -90, 0)
+        # facial rig
+        mayaUtils.RotateJoint("DAZ_Tongue_1", 0, -90, 0)
+        mayaUtils.RotateJoint("DAZ_Tongue_2", 0, -90, 0)
+        mayaUtils.RotateJoint("DAZ_Tongue_3", 0, -90, 0)
+        mayaUtils.RotateJoint("DAZ_Tongue_4", 0, -90, 0)
 
-    mayaUtils.RotateJoint("DAZ_Eye_L", 0, -90, 180)
-    mayaUtils.RotateJoint("DAZ_Eye_R", 0, -90, 180)
+        mayaUtils.RotateJoint("DAZ_Eye_L", 0, -90, 180)
+        mayaUtils.RotateJoint("DAZ_Eye_R", 0, -90, 180)
 
-    # selecting original joints of face rig
-    children = cmds.listRelatives('Head', allDescendents=True)
+        # selecting original joints of face rig
+        children = cmds.listRelatives('Head', allDescendents=True)
 
-    for child in children:
-        if child in ['Eye_L', 'Eye_R'] or child.startswith('Tongue_'):
-            continue  # skip already rotated
-        mayaUtils.RotateJoint('DAZ_' + child, 0, -90, 0)  # but rotating skeleton copy
+        for child in children:
+            if child in ['Eye_L', 'Eye_R'] or child.startswith('Tongue_'):
+                continue  # skip already rotated
+            mayaUtils.RotateJoint('DAZ_' + child, 0, -90, 0)  # but rotating skeleton copy
 
-    cmds.select(clear=True)
-    print 'Fixing joint orientation: Done'
+        cmds.select(clear=True)
 
 def AimJoint(joint, target):
     constraint = cmds.aimConstraint(target, joint, worldUpType='vector', worldUpVector=[0, 0, 1])
@@ -738,33 +753,29 @@ def AimFootJoint(footJoint, toeTarget):
 
 
 def FixNewJointsAiming(prefix='DAZ_'):
-    print 'FixNewJointsAiming'
-    AimJoint(prefix + 'Spine_1', prefix + 'Spine_2')
-    AimJoint(prefix + 'Spine_2', prefix + 'Spine_3')
-    AimJoint(prefix + 'Spine_3', prefix + 'Spine_4')
-    AimJoint(prefix + 'Spine_4', prefix + 'Neck_1')
-    AimJoint(prefix + 'Neck_1', prefix + 'Neck_2')
-    AimJoint(prefix + 'Neck_2', prefix + 'Head')
+    with mayaUtils.DebugTimer('FixNewJointsAiming'):
+        AimJoint(prefix + 'Spine_1', prefix + 'Spine_2')
+        AimJoint(prefix + 'Spine_2', prefix + 'Spine_3')
+        AimJoint(prefix + 'Spine_3', prefix + 'Spine_4')
+        AimJoint(prefix + 'Spine_4', prefix + 'Neck_1')
+        AimJoint(prefix + 'Neck_1', prefix + 'Neck_2')
+        AimJoint(prefix + 'Neck_2', prefix + 'Head')
 
-    AimJoint(prefix + 'Clavicle_L', prefix + 'Arm_L')
-    AimJoint(prefix + 'Arm_L', prefix + 'ForeArm_L')
-    AimJoint(prefix + 'ForeArm_L', prefix + 'Hand_L')
+        AimJoint(prefix + 'Clavicle_L', prefix + 'Arm_L')
+        AimJoint(prefix + 'Arm_L', prefix + 'ForeArm_L')
+        AimJoint(prefix + 'ForeArm_L', prefix + 'Hand_L')
 
-    AimJoint(prefix + 'Clavicle_R', prefix + 'Arm_R')
-    AimJoint(prefix + 'Arm_R', prefix + 'ForeArm_R')
-    AimJoint(prefix + 'ForeArm_R', prefix + 'Hand_R')
+        AimJoint(prefix + 'Clavicle_R', prefix + 'Arm_R')
+        AimJoint(prefix + 'Arm_R', prefix + 'ForeArm_R')
+        AimJoint(prefix + 'ForeArm_R', prefix + 'Hand_R')
 
-    AimJoint(prefix + 'UpLeg_L', prefix + 'Leg_L')
-    AimJoint(prefix + 'Leg_L', 'Foot_L')
-    AimJoint(prefix + 'UpLeg_R', prefix + 'Leg_R')
-    AimJoint(prefix + 'Leg_R', prefix + 'Foot_R')
+        AimJoint(prefix + 'UpLeg_L', prefix + 'Leg_L')
+        AimJoint(prefix + 'Leg_L', 'Foot_L')
+        AimJoint(prefix + 'UpLeg_R', prefix + 'Leg_R')
+        AimJoint(prefix + 'Leg_R', prefix + 'Foot_R')
 
-    AimFootJoint(prefix + 'Foot_L', prefix + 'Toe_L')
-    AimFootJoint(prefix + 'Foot_R', prefix + 'Toe_R')
-
-
-
-
+        AimFootJoint(prefix + 'Foot_L', prefix + 'Toe_L')
+        AimFootJoint(prefix + 'Foot_R', prefix + 'Toe_R')
 
 def AlighnTwistJoints(prefix='DAZ_'):
     print 'AlighnTwistJoints()'
@@ -779,53 +790,52 @@ def AlighnTwistJoints(prefix='DAZ_'):
 
 
 def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
-    print 'Recreating hierarchy'
+    with mayaUtils.DebugTimer('Recreating hierarchy'):
+        jointsList = cmds.listRelatives(oldSkeletonRoot, allDescendents=True, type="joint")#Root is already unparrented, we dont need it
 
-    jointsList = cmds.listRelatives(oldSkeletonRoot, allDescendents=True, type="joint")#Root is already unparrented, we dont need it
+        for j in jointsList:
+            parent = cmds.listRelatives(j, parent=True, type='joint')
+            if not parent:
+                continue
+            oldName = cmds.joint(j, q=True, name=True)
+            oldParentName = cmds.joint(parent, q=True, name=True)
+            newName = newJointsPrefix + oldName
+            newParentName = newJointsPrefix + oldParentName
+            if oldName == 'UpLeg_L' or oldName == 'UpLeg_R': #connect legs to Hips, not to pelvis
+                newParentName = newJointsPrefix + 'Hips'
+            elif oldName == 'Toe_L':
+                newParentName = newJointsPrefix + 'Foot_L' #not to lMetatarsals
+            elif oldName == 'Toe_R':
+                newParentName = newJointsPrefix + 'Foot_R' #not to rMetatarsals
 
-    for j in jointsList:
-        parent = cmds.listRelatives(j, parent=True, type='joint')
-        if not parent:
-            continue
-        oldName = cmds.joint(j, q=True, name=True)
-        oldParentName = cmds.joint(parent, q=True, name=True)
-        newName = newJointsPrefix + oldName
-        newParentName = newJointsPrefix + oldParentName
-        if oldName == 'UpLeg_L' or oldName == 'UpLeg_R': #connect legs to Hips, not to pelvis
-            newParentName = newJointsPrefix + 'Hips'
-        elif oldName == 'Toe_L':
-            newParentName = newJointsPrefix + 'Foot_L' #not to lMetatarsals
-        elif oldName == 'Toe_R':
-            newParentName = newJointsPrefix + 'Foot_R' #not to rMetatarsals
+            #print newParentName
+            cmds.parent(newName, newParentName)
 
-        #print newParentName
-        cmds.parent(newName, newParentName)
+            print '\tParenting {0} to {1}'.format(newName, newParentName)
 
-        print '\tParenting {0} to {1}'.format(newName, newParentName)
+        twistJoints = cmds.ls(newJointsPrefix+'*_TWIST')
+        for j in twistJoints:
+            parent = cmds.listRelatives(j, parent=True)
+            children = cmds.listRelatives(j)
+            if children is not None:
+                for child in children:
+                    print 'Reparenting twist joint {0} child {1} to {2}'.format(j, child, parent[0])
+                    cmds.parent(child, parent[0])
 
-    twistJoints = cmds.ls(newJointsPrefix+'*_TWIST')
-    for j in twistJoints:
-        parent = cmds.listRelatives(j, parent=True)
-        children = cmds.listRelatives(j)
-        if children is not None:
-            for child in children:
-                print 'Reparenting twist joint {0} child {1} to {2}'.format(j, child, parent[0])
-                cmds.parent(child, parent[0])
+        #Remove unused bones if exists (for animation retargeting mode)
+        unusedList = ['pelvis', 'lMetatarsals', 'rMetatarsals']
+        for j in unusedList:
+            if cmds.objExists(newJointsPrefix + j): #still use prefix
+                cmds.delete(newJointsPrefix + j)
+                print 'Deleting joint {0}'.format(newJointsPrefix + j)
 
-    #Remove unused bones if exists (for animation retargeting mode)
-    unusedList = ['pelvis', 'lMetatarsals', 'rMetatarsals']
-    for j in unusedList:
-        if cmds.objExists(newJointsPrefix + j): #still use prefix
-            cmds.delete(newJointsPrefix + j)
-            print 'Deleting joint {0}'.format(newJointsPrefix + j)
-
-    # orphanParentsList = ['Toe_L', 'Toe_R']
-    # for j in orphanParentsList:
-    #     if cmds.objExists(newJointsPrefix + j): #still use prefix
-    #         childrenList = cmds.listRelatives(newJointsPrefix + j, allDescendents=True) or []
-    #         for c in childrenList:
-    #             cmds.delete(c)
-    #             print 'Deleting {0} - child joint of {1} '.format(c, newJointsPrefix + j)
+        # orphanParentsList = ['Toe_L', 'Toe_R']
+        # for j in orphanParentsList:
+        #     if cmds.objExists(newJointsPrefix + j): #still use prefix
+        #         childrenList = cmds.listRelatives(newJointsPrefix + j, allDescendents=True) or []
+        #         for c in childrenList:
+        #             cmds.delete(c)
+        #             print 'Deleting {0} - child joint of {1} '.format(c, newJointsPrefix + j)
 
 
 def SetJointsVisualProperties():
@@ -835,14 +845,14 @@ def SetJointsVisualProperties():
         cmds.setAttr(j + '.radius', 3)
 
 def RenameNewSkeleton():
-    print 'Renaming new skeleton'
-    newRoot = cmds.ls('DAZ_Root', type="joint")
-    newJoints = cmds.listRelatives(newRoot, allDescendents=True)
-    newJoints.append(newRoot[0])
+    with mayaUtils.DebugTimer('RenameNewSkeleton'):
+        newRoot = cmds.ls('DAZ_Root', type="joint")
+        newJoints = cmds.listRelatives(newRoot, allDescendents=True)
+        newJoints.append(newRoot[0])
 
-    for j in newJoints:
-        newName = j[4:]
-        mayaUtils.RenameJoint(j, newName)
+        for j in newJoints:
+            newName = j[4:]
+            mayaUtils.RenameJoint(j, newName)
 
 
 
@@ -908,68 +918,66 @@ def MakeBendCorrectiveJoint(name, referenceJnt, parentJnt, donorJntsList=None):
         #cmds.select(intersectedVertsList)
 
 def MakeBendCorrectiveJoints():
-    print 'MakeBendCorrectiveJoints'
-    MakeBendCorrectiveJoint('Knee_L_BEND', 'Leg_L', 'UpLeg_L', ['UpLeg_L_TWIST', 'Leg_L'])
-    MakeBendCorrectiveJoint('Knee_R_BEND', 'Leg_R', 'UpLeg_R', ['UpLeg_R_TWIST', 'Leg_R'])
+    with mayaUtils.DebugTimer('MakeBendCorrectiveJoints'):
+        MakeBendCorrectiveJoint('Knee_L_BEND', 'Leg_L', 'UpLeg_L', ['UpLeg_L_TWIST', 'Leg_L'])
+        MakeBendCorrectiveJoint('Knee_R_BEND', 'Leg_R', 'UpLeg_R', ['UpLeg_R_TWIST', 'Leg_R'])
 
-    MakeBendCorrectiveJoint('Butt_L_BEND', 'UpLeg_L', 'Hips')
-    MakeBendCorrectiveJoint('Butt_R_BEND', 'UpLeg_R', 'Hips')
+        MakeBendCorrectiveJoint('Butt_L_BEND', 'UpLeg_L', 'Hips')
+        MakeBendCorrectiveJoint('Butt_R_BEND', 'UpLeg_R', 'Hips')
 
-    MakeBendCorrectiveJoint('Shoulder_L_BEND', 'Arm_L', 'Clavicle_L')
-    MakeBendCorrectiveJoint('Shoulder_R_BEND', 'Arm_R', 'Clavicle_R')
+        MakeBendCorrectiveJoint('Shoulder_L_BEND', 'Arm_L', 'Clavicle_L')
+        MakeBendCorrectiveJoint('Shoulder_R_BEND', 'Arm_R', 'Clavicle_R')
 
-    MakeBendCorrectiveJoint('Elbow_L_BEND', 'ForeArm_L', 'Arm_L', ['Arm_L_TWIST', 'ForeArm_L'])
-    MakeBendCorrectiveJoint('Elbow_R_BEND', 'ForeArm_R', 'Arm_R', ['Arm_R_TWIST', 'ForeArm_R'])
+        MakeBendCorrectiveJoint('Elbow_L_BEND', 'ForeArm_L', 'Arm_L', ['Arm_L_TWIST', 'ForeArm_L'])
+        MakeBendCorrectiveJoint('Elbow_R_BEND', 'ForeArm_R', 'Arm_R', ['Arm_R_TWIST', 'ForeArm_R'])
 
 def TriangulateAllSkinnedMeshes():
-    start = time.clock()
-    cmds.select(clear=True)
-    skinList = cmds.ls(type='skinCluster') or []
-    for s in skinList:
-        mesh = mayaUtils.GetMeshFromSkinCluster(s)
-        cmds.polyTriangulate(mesh)
-        cmds.bakePartialHistory(mesh, prePostDeformers=True)
-    cmds.select(clear=True)
-    print 'FINISHED TriangulateAllSkinnedMeshes(): time taken %.02f seconds' % (time.clock()-start)
+    with mayaUtils.DebugTimer('TriangulateAllSkinnedMeshes'):
+        cmds.select(clear=True)
+        skinList = cmds.ls(type='skinCluster') or []
+        for s in skinList:
+            mesh = mayaUtils.GetMeshFromSkinCluster(s)
+            cmds.polyTriangulate(mesh)
+            cmds.bakePartialHistory(mesh, prePostDeformers=True)
+        cmds.select(clear=True)
 
 def SubdivideImportantBodyParts():
-    start = time.clock()
-    cmds.select(clear=True)
-    bodyMesh = mayaUtils.FindMeshByWildcard('Genesis*Shape', preferShapeWithMaxVertices=True, checkForMatWithName='Torso')
-    if bodyMesh:
-        facesToSubdiv = []
+    with mayaUtils.DebugTimer('SubdivideImportantBodyParts'):
+        cmds.select(clear=True)
+        bodyMesh = mayaUtils.FindMeshByWildcard('Genesis*Shape', preferShapeWithMaxVertices=True, checkForMatWithName='Torso')
+        if bodyMesh:
+            facesToSubdiv = []
 
-        nipplesVerts = []
-        leftNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_LEFT_NIPPLE_UV)
-        rightNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_RIGHT_NIPPLE_UV)
-
-
-        if leftNipple and rightNipple:
-            nipplesVerts = [leftNipple, rightNipple]
-            nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
-            nipplesVerts = cmds.polyListComponentConversion(nipplesFaces, ff=True, tv=True)
-            nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
-            nipplesVerts = cmds.polyListComponentConversion(nipplesFaces, ff=True, tv=True)
-            nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
-            if nipplesFaces:
-                facesToSubdiv.extend(nipplesFaces)
-
-        earsFaces = mayaUtils.GetFacesByMatsWildcard(bodyMesh, 'Ears')
-        if earsFaces:
-            facesToSubdiv.extend(earsFaces)
-
-        handsFaces = selUtils.GetFacesInUTile(bodyMesh, 2)
-        if handsFaces:
-            facesToSubdiv.extend(handsFaces)
-
-        feetFaces = selUtils.GetFacesInUTile(bodyMesh, 3)
-        if feetFaces:
-            facesToSubdiv.extend(feetFaces)
+            nipplesVerts = []
+            leftNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_LEFT_NIPPLE_UV)
+            rightNipple = mayaUtils.GetVertexFromUV(bodyMesh, k_RIGHT_NIPPLE_UV)
 
 
-        if facesToSubdiv:
-            cmds.polySmooth(facesToSubdiv)
-            cmds.bakePartialHistory(bodyMesh, prePostDeformers=True)
+            if leftNipple and rightNipple:
+                nipplesVerts = [leftNipple, rightNipple]
+                nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
+                nipplesVerts = cmds.polyListComponentConversion(nipplesFaces, ff=True, tv=True)
+                nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
+                nipplesVerts = cmds.polyListComponentConversion(nipplesFaces, ff=True, tv=True)
+                nipplesFaces = cmds.polyListComponentConversion(nipplesVerts, fv=True, tf=True)
+                if nipplesFaces:
+                    facesToSubdiv.extend(nipplesFaces)
 
-    cmds.select(clear=True)
-    print 'FINISHED SubdivideImportantBodyParts(): time taken %.02f seconds' % (time.clock()-start)
+            earsFaces = mayaUtils.GetFacesByMatsWildcard(bodyMesh, 'Ears')
+            if earsFaces:
+                facesToSubdiv.extend(earsFaces)
+
+            handsFaces = selUtils.GetFacesInUTile(bodyMesh, 2)
+            if handsFaces:
+                facesToSubdiv.extend(handsFaces)
+
+            feetFaces = selUtils.GetFacesInUTile(bodyMesh, 3)
+            if feetFaces:
+                facesToSubdiv.extend(feetFaces)
+
+
+            if facesToSubdiv:
+                cmds.polySmooth(facesToSubdiv)
+                cmds.bakePartialHistory(bodyMesh, prePostDeformers=True)
+
+        cmds.select(clear=True)

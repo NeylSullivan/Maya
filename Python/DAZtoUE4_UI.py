@@ -33,7 +33,7 @@ class DAZtoUE4_UI(object):
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                     self.btnOptimizeSkeleton = cmds.button(label="Optimize Skeleton and Mesh", command=self.OptimizeSkeleton)
-                    self.chkbxPreSubdivideImportantParts = cmds.checkBox(label='Pre Subdivide Important Parts', align='left', value=True)
+                    self.chkbxLoadExtMorphs = cmds.checkBox(label='Load External Morphs', align='left', value=True)
                     self.chkbxCreateIKConstraints = cmds.checkBox(label='Create IK Constraints', align='left', value=False)
                     self.chkbxCollapseToes = cmds.checkBox(label='Collapse Toes', align='left', value=False)
 
@@ -71,9 +71,9 @@ class DAZtoUE4_UI(object):
     def OptimizeSkeleton(self, _unused):
         reload(DAZtoUE4)
         collapseToes = cmds.checkBox(self.chkbxCollapseToes, query=True, value=True)
-        subdivide = cmds.checkBox(self.chkbxPreSubdivideImportantParts, query=True, value=True)
+        loadExtMorphs = cmds.checkBox(self.chkbxLoadExtMorphs, query=True, value=True)
         createIKConstraints = cmds.checkBox(self.chkbxCreateIKConstraints, query=True, value=True)
-        DAZtoUE4.OptimizeSkeleton(collapseToes, subdivide, createIKConstraints)
+        DAZtoUE4.OptimizeSkeleton(collapseToes, loadExtMorphs, createIKConstraints)
 
     def CreateOptimizedSkeletonOnlyAndRetargetAnim(self, _unused):
         reload(DAZtoUE4)
