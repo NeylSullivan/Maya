@@ -5,9 +5,21 @@ import maya.OpenMaya as om
 import time
 import winsound
 import fnmatch
+from contextlib import contextmanager
 import libHazardMathUtils as hazmath
 
 reload(hazmath)
+
+
+@contextmanager
+def DebugTimer(pName):
+    start = time.clock()
+    try:
+        print 'START:      *******     {}      *******'.format(pName)
+        yield
+    finally:
+        end = time.clock()
+        print 'FINISH:     *******     {}      *******\n      Time taken {:.2f} seconds'.format(pName, end - start)
 
 
 def CleanUnusedMaterials():
