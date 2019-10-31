@@ -1,5 +1,5 @@
 import maya.cmds as cmds
-import maya.OpenMaya as om
+import maya.api.OpenMaya as om2
 import libHazardMayaUtils as mayaUtils
 
 reload(mayaUtils)
@@ -58,29 +58,22 @@ def IsUvInRange(pInUV, pFrom, pTo):
 
     return True
 
-
 #def GetFacesInUVRange(pShape, pFrom=[0, 0], pTo=[1, 1]):
 def GetFacesInUVRange(pShape, pFrom, pTo, pInvertResult=False):
-    mfnMesh = om.MFnMesh(mayaUtils.GetDagPath(pShape))
-    numFaces = mfnMesh.numPolygons()
+    nodeDagPath = om2.MGlobal.getSelectionListByName(pShape).getDagPath(0)
+    mfnMesh = om2.MFnMesh(nodeDagPath)
+
+    numFaces = mfnMesh.numPolygons
 
     matched_faces = []
-
-    uUtil = om.MScriptUtil()
-    uUtil.createFromDouble(0.0)
-    uPtr = uUtil.asFloatPtr()
-
-    vUtil = om.MScriptUtil()
-    vUtil.createFromDouble(0.0)
-    vPtr = vUtil.asFloatPtr()
 
     for faceIdx in range(numFaces):
         center = [0.0, 0.0]
         vtxCount = mfnMesh.polygonVertexCount(faceIdx)
         for vertIdx in range(vtxCount):
-            mfnMesh.getPolygonUV(faceIdx, vertIdx, uPtr, vPtr)
-            center[0] += om.MScriptUtil(uPtr).asFloat()
-            center[1] += om.MScriptUtil(vPtr).asFloat()
+            vertUV = mfnMesh.getPolygonUV(faceIdx, vertIdx)
+            center[0] += vertUV[0]
+            center[1] += vertUV[1]
 
         # Find average
         center[0] /= vtxCount

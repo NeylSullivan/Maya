@@ -26,27 +26,27 @@ def TryLoadExternalMorphTargets():
             return
 
 
-    subDirs = [dI for dI in os.listdir(hazMtp.SRC_DIR) if os.path.isdir(os.path.join(hazMtp.SRC_DIR, dI))]
+        subDirs = [dI for dI in os.listdir(hazMtp.SRC_DIR) if os.path.isdir(os.path.join(hazMtp.SRC_DIR, dI))]
 
-    for subDir in subDirs:
-        if not subDir.startswith('MT_'):
-            print 'SKIPPING directory {}. Reason - unresolved name (should starts with \'MT_\')'.format(subDir)
-            continue
+        for subDir in subDirs:
+            if not subDir.startswith('MT_'):
+                print 'SKIPPING directory {}. Reason - unresolved name (should starts with \'MT_\')'.format(subDir)
+                continue
 
-        fullSubdirPath = os.path.join(hazMtp.SRC_DIR, subDir)
-        morphMeshFile = os.path.join(fullSubdirPath, hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
-        morphMeshExist = os.path.exists(morphMeshFile)
-        print 'Dir: {} SubD mesh: {} Exist: {}'.format(subDir, morphMeshFile, morphMeshExist)
-        if not morphMeshExist:
-            print 'SKIPPING...'
-            continue
+            fullSubdirPath = os.path.join(hazMtp.SRC_DIR, subDir)
+            morphMeshFile = os.path.join(fullSubdirPath, hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
+            morphMeshExist = os.path.exists(morphMeshFile)
+            print 'Dir: {} SubD mesh: {} Exist: {}'.format(subDir, morphMeshFile, morphMeshExist)
+            if not morphMeshExist:
+                print 'SKIPPING...'
+                continue
 
-        morphMesh = cmds.file(morphMeshFile, i=True, returnNewNodes=True)[0]
-        morphMesh = cmds.rename(morphMesh, subDir) # name new blendshape as it folder
-        cmds.xform(morphMesh, absolute=True, translation=[0, 0, 100])
+            morphMesh = cmds.file(morphMeshFile, i=True, returnNewNodes=True)[0]
+            morphMesh = cmds.rename(morphMesh, subDir) # name new blendshape as it folder
+            cmds.xform(morphMesh, absolute=True, translation=[0, 0, 100])
 
-        cmds.blendShape([morphMesh, mainMesh]) # TODO does it create a new deformer or add to existing?
-        cmds.delete(morphMesh)
+            cmds.blendShape([morphMesh, mainMesh]) # TODO does it create a new deformer or add to existing?
+            cmds.delete(morphMesh)
 
 
 
@@ -80,72 +80,71 @@ def TryLoadExternalBodymorph():
         cmds.delete(morphMesh)
 
 def PostprocessGenitaliaObject(genitaliaMeshWildcard):
-    print 'PostprocessGenitaliaObject(genitaliaMeshWildcard={0})'.format(genitaliaMeshWildcard)
+    with mayaUtils.DebugTimer('PostprocessGenitaliaObject(genitaliaMeshWildcard={0})'.format(genitaliaMeshWildcard)):
+        genitaliaMesh = mayaUtils.FindMeshByWildcard(genitaliaMeshWildcard)
+        if not genitaliaMesh:
+            print 'Genitalia mesh not found. Aborted'
+            return
 
-    genitaliaMesh = mayaUtils.FindMeshByWildcard(genitaliaMeshWildcard)
-    if not genitaliaMesh:
-        print 'Genitalia mesh not found. Aborted'
-        return
+        print 'Processing {0}'.format(genitaliaMesh)
 
-    print 'Processing {0}'.format(genitaliaMesh)
+        genitaliaMesh = cmds.rename(genitaliaMesh, 'FemaleGenitalia') #rename to proper name
 
-    genitaliaMesh = cmds.rename(genitaliaMesh, 'FemaleGenitalia') #rename to proper name
+        #replace material with original torso mat
+        facesWithTorsoMat = mayaUtils.GetFacesByMatsWildcard(genitaliaMesh, 'Torso*')
+        mayaUtils.AssignObjectListToShader(facesWithTorsoMat, 'Body') #use new material name
+        # mayaUtils.ArrangeUVByMat(genitaliaMesh, 'Body', su=0.5, sv=0.5, u=0.5, v=0.5)
+        mayaUtils.AppendShadingGroupByMat(genitaliaMesh, 'Anus', 'Vagina')
+        mayaUtils.RenameMaterial('Anus', 'BodyGenitalia')
+        cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
 
-    #replace material with original torso mat
-    facesWithTorsoMat = mayaUtils.GetFacesByMatsWildcard(genitaliaMesh, 'Torso*')
-    mayaUtils.AssignObjectListToShader(facesWithTorsoMat, 'Body') #use new material name
-    # mayaUtils.ArrangeUVByMat(genitaliaMesh, 'Body', su=0.5, sv=0.5, u=0.5, v=0.5)
-    mayaUtils.AppendShadingGroupByMat(genitaliaMesh, 'Anus', 'Vagina')
-    mayaUtils.RenameMaterial('Anus', 'BodyGenitalia')
-    cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
+        bodyMesh = mayaUtils.FindMeshByWildcard('FemaleBody'+'*', checkForMatWithName='Body')
 
-    bodyMesh = mayaUtils.FindMeshByWildcard('FemaleBody'+'*', checkForMatWithName='Body')
+        if not bodyMesh:
+            print '{0} mesh not found. Aborted'
+            return
 
-    if not bodyMesh:
-        print '{0} mesh not found. Aborted'
-        return
+        cmds.select(clear=True)
+        borderVertsList = mayaUtils.GetBorderVertices(genitaliaMesh)
+        borderVertsList = cmds.filterExpand(borderVertsList, sm=31, expand=True)
 
-    cmds.select(clear=True)
-    borderVertsList = mayaUtils.GetBorderVertices(genitaliaMesh)
-    borderVertsList = cmds.filterExpand(borderVertsList, sm=31, expand=True)
-
-    bodySkinCluster = mayaUtils.GetSkinCluster(bodyMesh)
-    genitaliaSkinCluster = mayaUtils.GetSkinCluster(genitaliaMesh)
-
-
-    #transfer attributes manually
-    for v in borderVertsList:
-        pos = cmds.pointPosition(v, world=True)
-        #print pos
-        closestVert = mayaUtils.GetClosestVertex(bodyMesh, pos)
-        closestVertPos = cmds.xform(closestVert, t=True, ws=True, q=True)
-        closestVertNormal = cmds.polyNormalPerVertex(closestVert, query=True, xyz=True)
-
-        # set position
-        cmds.move(closestVertPos[0], closestVertPos[1], closestVertPos[2], v, absolute=True, worldSpace=True)
-        # set normal
-        cmds.polyNormalPerVertex(v, xyz=(closestVertNormal[0], closestVertNormal[1], closestVertNormal[2]))
-
-        referenceVertInfluences = cmds.skinPercent(bodySkinCluster, closestVert, query=True, transform=None, ignoreBelow=0.00001)
-
-        targetInfluences = cmds.skinCluster(genitaliaSkinCluster, query=True, influence=True)
-
-        targetTransformValues = []
-
-        for i in referenceVertInfluences:
-            if i not in targetInfluences:
-                cmds.skinCluster(genitaliaSkinCluster, e=True, addInfluence=i, weight=0.0)
-                #print i
-            referenceInfluenceValuePerVertex = cmds.skinPercent(bodySkinCluster, closestVert, query=True, transform=i, transformValue=True)
-            targetTransformValues.append((i, referenceInfluenceValuePerVertex))
-
-        #print targetTransformValues
-
-        # set weight
-        cmds.skinPercent(genitaliaSkinCluster, v, transformValue=targetTransformValues)
+        bodySkinCluster = mayaUtils.GetSkinCluster(bodyMesh)
+        genitaliaSkinCluster = mayaUtils.GetSkinCluster(genitaliaMesh)
 
 
-    cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
+        #transfer attributes manually
+        for v in borderVertsList:
+            pos = cmds.pointPosition(v, world=True)
+            #print pos
+            closestVert = mayaUtils.GetClosestVertex(bodyMesh, pos)
+            closestVertPos = cmds.xform(closestVert, t=True, ws=True, q=True)
+            closestVertNormal = cmds.polyNormalPerVertex(closestVert, query=True, xyz=True)
+
+            # set position
+            cmds.move(closestVertPos[0], closestVertPos[1], closestVertPos[2], v, absolute=True, worldSpace=True)
+            # set normal
+            cmds.polyNormalPerVertex(v, xyz=(closestVertNormal[0], closestVertNormal[1], closestVertNormal[2]))
+
+            referenceVertInfluences = cmds.skinPercent(bodySkinCluster, closestVert, query=True, transform=None, ignoreBelow=0.00001)
+
+            targetInfluences = cmds.skinCluster(genitaliaSkinCluster, query=True, influence=True)
+
+            targetTransformValues = []
+
+            for i in referenceVertInfluences:
+                if i not in targetInfluences:
+                    cmds.skinCluster(genitaliaSkinCluster, e=True, addInfluence=i, weight=0.0)
+                    #print i
+                referenceInfluenceValuePerVertex = cmds.skinPercent(bodySkinCluster, closestVert, query=True, transform=i, transformValue=True)
+                targetTransformValues.append((i, referenceInfluenceValuePerVertex))
+
+            #print targetTransformValues
+
+            # set weight
+            cmds.skinPercent(genitaliaSkinCluster, v, transformValue=targetTransformValues)
+
+
+        cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
 
 def MaskShellsEdgesForTesselation(shape, pUVtile):
     cmds.select(clear=True)
@@ -154,27 +153,43 @@ def MaskShellsEdgesForTesselation(shape, pUVtile):
     borderVerts = cmds.polyListComponentConversion(matched_faces, ff=True, tv=True, bo=True)
     borderFaces = cmds.polyListComponentConversion(borderVerts, fv=True, tf=True) #sort of grow extrude
     borderVerts = cmds.polyListComponentConversion(borderFaces, ff=True, tv=True) #we need wider row to mask tessellation in ue4
-
+    #print borderVerts
     if borderVerts:
-        cmds.polyColorPerVertex(borderVerts, colorR=0.0) #fill verts red=0 color
+        mayaUtils.SetVertexColors(borderVerts, (0, 1, 1))
+        #cmds.polyColorPerVertex(borderVerts, colorR=0.0, notUndoable=True) #fill verts red=0 color
     else:
         print 'No border verts detected. Skipping polyColorPerVertex'
     cmds.select(clear=True)
 
-
-def SetVertexColorForUVBorder():
-    with mayaUtils.DebugTimer('SetVertexColorForUVBorder'):
+def SetVertexColorForBorderVertices():
+    with mayaUtils.DebugTimer('SetVertexColorForBorderVertices'):
+        skinList = cmds.ls(type='skinCluster')
         cmds.select(clear=True)
-        shape = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
-        MaskShellsEdgesForTesselation(shape, 0)
-        MaskShellsEdgesForTesselation(shape, 1)
-        MaskShellsEdgesForTesselation(shape, 2)
-        MaskShellsEdgesForTesselation(shape, 3)
-        MaskShellsEdgesForTesselation(shape, 4)
 
-        #mayaUtils.SetVertexColorForBorderVertices()do it manually
-        #mayaUtils.SetAverageNormalsForBorderVertices(shape) #dont need it anymore
-        cmds.bakePartialHistory(shape, prePostDeformers=True)
+        for s in skinList:
+            cmds.select(clear=True)
+            mesh = mayaUtils.GetMeshFromSkinCluster(s)
+            cmds.select(mesh)
+            cmds.selectType(polymeshFace=True)
+            cmds.polySelectConstraint(mode=3, type=8, where=1) # to get border vertices
+            borderVerts = cmds.polyListComponentConversion(tv=True)
+            cmds.polySelectConstraint(mode=0, sh=0, bo=0)
+            cmds.select(clear=True)
+
+            allVerts = cmds.polyListComponentConversion(mesh, tv=True)
+            mayaUtils.SetVertexColors(allVerts, (1, 1, 1))
+            mayaUtils.SetVertexColors(borderVerts, (0, 1, 1))
+
+        cmds.select(clear=True)
+
+        shape = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
+        if shape:
+            MaskShellsEdgesForTesselation(shape, 0)
+            MaskShellsEdgesForTesselation(shape, 1)
+            MaskShellsEdgesForTesselation(shape, 2)
+            MaskShellsEdgesForTesselation(shape, 3)
+            MaskShellsEdgesForTesselation(shape, 4)
+
 
 def RenameAndCombineMeshes():
     with mayaUtils.DebugTimer('RenameAndCombineMeshes'):
@@ -778,15 +793,15 @@ def FixNewJointsAiming(prefix='DAZ_'):
         AimFootJoint(prefix + 'Foot_R', prefix + 'Toe_R')
 
 def AlighnTwistJoints(prefix='DAZ_'):
-    print 'AlighnTwistJoints()'
-    twistJoints = cmds.ls(prefix + '*_TWIST', type='joint')
-    for j in twistJoints:
-        oldPos = cmds.joint(j, q=True, position=True, relative=True)
-        newPos = [oldPos[0], 0.0, 0.0]
-        print '\tAlighning joint {0} oldPos={1}, newPos ={2}'.format(j, oldPos, newPos)
-        cmds.joint(j, e=True, position=newPos, relative=True)
-        cmds.joint(j, e=True, orientation=[0.0, 0.0, 0.0])
-        cmds.xform(j, rotation=[0.0, 0.0, 0.0])
+    with mayaUtils.DebugTimer('AlighnTwistJoints'):
+        twistJoints = cmds.ls(prefix + '*_TWIST', type='joint')
+        for j in twistJoints:
+            oldPos = cmds.joint(j, q=True, position=True, relative=True)
+            newPos = [oldPos[0], 0.0, 0.0]
+            print '\tAlighning joint {0} oldPos={1}, newPos ={2}'.format(j, oldPos, newPos)
+            cmds.joint(j, e=True, position=newPos, relative=True)
+            cmds.joint(j, e=True, orientation=[0.0, 0.0, 0.0])
+            cmds.xform(j, rotation=[0.0, 0.0, 0.0])
 
 
 def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):

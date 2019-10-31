@@ -119,11 +119,9 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalMorphs=False, pCreateIKC
 
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
 
-    mayaUtils.SetVertexColorForBorderVertices() #for genitalia mesh also
-
     dazUtils.RenameAndCombineMeshes()
 
-    dazUtils.SetVertexColorForUVBorder()
+    dazUtils.SetVertexColorForBorderVertices() #for genitalia mesh also
 
     dazUtils.PostprocessGenitaliaObject('HazardFemaleGenitalia*')
 

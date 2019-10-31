@@ -2,6 +2,7 @@ import os
 import maya.cmds as cmds
 import maya.mel as mel
 import maya.OpenMaya as om
+import maya.api.OpenMaya as om2
 import time
 import winsound
 import fnmatch
@@ -9,7 +10,6 @@ from contextlib import contextmanager
 import libHazardMathUtils as hazmath
 
 reload(hazmath)
-
 
 @contextmanager
 def DebugTimer(pName):
@@ -25,6 +25,23 @@ def DebugTimer(pName):
 def CleanUnusedMaterials():
     print 'CleanUnusedMaterials()'
     mel.eval('MLdeleteUnused;')
+
+
+# Much faster than polyColorPerVertex
+# but pVerts should be a verts of SAME mesh
+def SetVertexColors(pVerts, pColor):
+    if not pVerts:
+        return
+    indices = []
+    for vertData in pVerts:
+        dagObjectTupple = om2.MGlobal.getSelectionListByName(vertData).getComponent(0)
+        nodeDagPath = dagObjectTupple[0]
+        comp = om2.MFnSingleIndexedComponent(dagObjectTupple[1])
+        indices.extend(comp.getElements())
+
+    colors = [om2.MColor(pColor)] * len(indices)
+    mfnMesh = om2.MFnMesh(nodeDagPath)
+    mfnMesh.setVertexColors(colors, indices)
 
 
 # Find closest vertex to given uv coordinates
@@ -202,32 +219,6 @@ def SetAverageNormalsForBorderVertices(mesh):
     cmds.select(borderVertsList)
     cmds.polyAverageNormal(distance=0.2)
     cmds.select(clear=True)
-
-
-
-def SetVertexColorForBorderVertices():
-    with DebugTimer('SetVertexColorForBorderVertices'):
-        skinList = cmds.ls(type='skinCluster')
-        cmds.select(clear=True)
-        borderVertsList = []
-
-        for s in skinList:
-            cmds.select(clear=True)
-            mesh = GetMeshFromSkinCluster(s)
-            cmds.select(mesh)
-            cmds.selectType(polymeshFace=True)
-            cmds.polySelectConstraint(mode=3, type=8, where=1) # to get border vertices
-            borderVerts = cmds.polyListComponentConversion(tv=True)
-            borderVertsList.extend(borderVerts)
-            cmds.polySelectConstraint(mode=0, sh=0, bo=0)
-            cmds.select(clear=True)
-
-            allVerts = cmds.polyListComponentConversion(mesh, tv=True)
-            cmds.polyColorPerVertex(allVerts, rgb=(1.0, 1.0, 1.0))
-
-        cmds.select(borderVertsList)
-        cmds.polyColorPerVertex(borderVertsList, rgb=(0.0, 1.0, 1.0))
-        cmds.select(clear=True)
 
 
 def ParentAllGeometryToWorld():
@@ -459,19 +450,19 @@ def TransferJointWeights(oldJointName, newJointName):
     cmds.select(clear=True)
     skinList = cmds.ls(type='skinCluster')
     print ''
-    print 'TransferJointWeights: Transfering weights from {0} to {1}'.format(oldJointName, newJointName)
+    print 'TransferJointWeights: Transfering weights from \'{}\' to \'{}\''.format(oldJointName, newJointName)
     for skinClusterName in skinList:
         cmds.select(clear=True)
-        print 'TransferJointWeights: Processing ' + skinClusterName
+
         influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
         if oldJointName not in influences:
-            print 'TransferJointWeights: ' + skinClusterName + ' is NOT influenced by SOURCE joint ' + oldJointName + ' Skipping...'
+            print 'TransferJointWeights: \'{}\' is NOT influenced by SOURCE joint \'{}\'. Skipping...'.format(skinClusterName, oldJointName)
             continue
-        elif newJointName not in influences:
-            print 'TransferJointWeights: ' + skinClusterName + ' is NOT influenced by TARGET joint ' + newJointName + ' Skipping...'
+        elif newJointName not in influences: #S hould be added to influences instead
+            print 'TransferJointWeights: \'{}\' is NOT influenced by TARGET joint \'{}\'. Skipping...'.format(skinClusterName, newJointName)
             continue
         else:
-            print 'TransferJointWeights: ' + skinClusterName + ' is influenced by joint ' + oldJointName + ' Processing...'
+            print 'TransferJointWeights: \'{}\' is influenced by joint \'{}\' Processing...'.format(skinClusterName, oldJointName)
 
         cmds.skinCluster(skinClusterName, e=True, selectInfluenceVerts=oldJointName)
         sel = cmds.ls(selection=True, flatten=True)
@@ -489,7 +480,8 @@ def TransferJointWeights(oldJointName, newJointName):
                 # set weight
                 cmds.skinPercent(skinClusterName, v, transformValue=[(oldJointName, 0), (newJointName, finalNewJointWeight)])
 
-        print 'TransferJointWeights: Removing {0} from influences of {1}'.format(oldJointName, skinClusterName)
+
+        #print 'TransferJointWeights: Removing \'{}\' from influences of \'{}\''.format(oldJointName, skinClusterName)
         cmds.skinCluster(skinClusterName, e=True, removeInfluence=oldJointName)
 
     print 'TransferJointWeights: Done'
@@ -497,30 +489,29 @@ def TransferJointWeights(oldJointName, newJointName):
 
 
 def DestroyMiddleJoint(jointName):
-    print''
+    print ''
 
     if not cmds.objExists(jointName):
-        print 'DestroyMiddleJoint: joint {0} is not exist: Aborting'.format(jointName)
+        print 'DestroyMiddleJoint: joint \'{}\' is not exist: Aborting'.format(jointName)
         return
 
-    print 'DestroyMiddleJoint: Processing joint: ' + jointName
-    parent = cmds.listRelatives(jointName, parent=True)
-    if parent is None:
-        print 'DestroyMiddleJoint: Joint parent is None. Aborting'
+    parents = cmds.listRelatives(jointName, parent=True)
+    if parents is None:
+        print 'DestroyMiddleJoint: Joint \'{}\' parent is None. Aborting'.format(jointName)
         return
+    parent = parents[0]
 
-    print 'DestroyMiddleJoint: Joint parent is ' + parent[0]
-    TransferJointWeights(jointName, parent[0])
+    print 'DestroyMiddleJoint: Processing joint \'{}\' with parent \'{}\''.format(jointName, parent)
+    TransferJointWeights(jointName, parent)
 
     children = cmds.listRelatives(jointName)
     if children is not None:
         for child in children:
-            print 'DestroyMiddleJoint: parenting {0} to {1}'.format(child, parent[0])
-            cmds.parent(child, parent[0])
+            print 'DestroyMiddleJoint: parenting \'{}\' to \'{}\''.format(child, parent)
+            cmds.parent(child, parent)
 
-    print 'DestroyMiddleJoint: unparenting {0}'.format(jointName)
+    print 'DestroyMiddleJoint: unparenting and destroying \'{}\''.format(jointName)
     cmds.parent(jointName, world=True)
-    print 'DestroyMiddleJoint: destroying {0}'.format(jointName)
     cmds.delete(jointName)
 
     print 'DestroyMiddleJoint: Done'
