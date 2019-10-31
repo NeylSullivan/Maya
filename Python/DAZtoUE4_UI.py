@@ -11,7 +11,6 @@ reload(dazUtils)
 reload(skelUtils)
 reload(uiExt)
 
-
 class DAZtoUE4_UI(object):
     def __init__(self):
 
@@ -33,9 +32,9 @@ class DAZtoUE4_UI(object):
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                     self.btnOptimizeSkeleton = cmds.button(label="Optimize Skeleton and Mesh", command=self.OptimizeSkeleton)
-                    self.chkbxLoadExtMorphs = cmds.checkBox(label='Load External Morphs', align='left', value=True)
-                    self.chkbxCreateIKConstraints = cmds.checkBox(label='Create IK Constraints', align='left', value=False)
-                    self.chkbxCollapseToes = cmds.checkBox(label='Collapse Toes', align='left', value=False)
+                    self.chkbxLoadExtMorphs = uiExt.SaveableCheckBox(self.WINDOW_NAME, label='Load External Morphs', align='left', value=True)
+                    self.chkbxCreateIKConstraints = uiExt.SaveableCheckBox(self.WINDOW_NAME, label='Create IK Constraints', align='left', value=False)
+                    self.chkbxCollapseToes = uiExt.SaveableCheckBox(self.WINDOW_NAME, label='Collapse Toes', align='left', value=False)
 
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
@@ -68,11 +67,13 @@ class DAZtoUE4_UI(object):
         cmds.window(self.WINDOW_NAME, e=True, widthHeight=self.WINDOW_SIZE)
 
 
+
+
     def OptimizeSkeleton(self, _unused):
         reload(DAZtoUE4)
-        collapseToes = cmds.checkBox(self.chkbxCollapseToes, query=True, value=True)
         loadExtMorphs = cmds.checkBox(self.chkbxLoadExtMorphs, query=True, value=True)
         createIKConstraints = cmds.checkBox(self.chkbxCreateIKConstraints, query=True, value=True)
+        collapseToes = cmds.checkBox(self.chkbxCollapseToes, query=True, value=True)
         DAZtoUE4.OptimizeSkeleton(collapseToes, loadExtMorphs, createIKConstraints)
 
     def CreateOptimizedSkeletonOnlyAndRetargetAnim(self, _unused):
