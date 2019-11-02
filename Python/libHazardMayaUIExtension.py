@@ -22,14 +22,14 @@ def __GetOptFullName(pNamespace, pName):
         return pName
     return '{}.{}'.format(pNamespace, pName)
 
-def GetOptValue(pName, pDefaultValue, pNamespace=None):
+def GetOptValue(pNamespace, pName, pDefaultValue):
     fullName = __GetOptFullName(pNamespace, pName)
     if cmds.optionVar(exists=fullName):
         return cmds.optionVar(q=fullName)
     else:
         return pDefaultValue
 
-def SetOptValue(pName, pNewValue, pNamespace=None):
+def SetOptValue(pNamespace, pName, pNewValue):
     fullName = __GetOptFullName(pNamespace, pName)
 
     if pNewValue is None:
@@ -49,15 +49,20 @@ def SetOptValue(pName, pNewValue, pNamespace=None):
     print 'ERROR SetValue {} {}'.format(pName, pNewValue)
 
 
-def SaveableCheckBox(pWindowName, *args, **kwargs):
-    label = kwargs['label']
-    optName = pWindowName + '.' + label.replace(' ', '_')
+def SaveableCheckBox(*args, **kwargs):
+    cb = cmds.checkBox(*args, **kwargs)
 
-    #print optName
+    if 'label' not in kwargs or (not kwargs['label']):
+        raise Exception('Checkbox \'{}\' without label will not be saveable'.format(cb))
 
-    #if cmds.optionVar(exists=optName):
-        #kwargs['value'] = cmds.optionVar(q=optName)
-    kwargs['value'] = GetOptValue(optName, kwargs['value'])
-    kwargs['changeCommand'] = (lambda val: SetOptValue(optName, val))
+    if 'changeCommand' in kwargs:
+        raise Exception('Checkbox \'{}\' should not have \'changeCommand\' callback to be saveable'.format(cb))
 
-    return cmds.checkBox(*args, **kwargs)
+
+    namespace = cb.split('|')[0] #get window name from checkbox path
+    optionName = kwargs['label'].replace(' ', '_')
+    startValue = GetOptValue(namespace, optionName, kwargs.get('value', False))
+    cmds.checkBox(cb, edit=True, value=startValue) # Set initial value
+    cmds.checkBox(cb, edit=True, changeCommand=(lambda newValue: SetOptValue(namespace, optionName, newValue))) # Calback to save value
+
+    return cb

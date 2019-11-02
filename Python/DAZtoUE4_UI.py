@@ -32,9 +32,9 @@ class DAZtoUE4_UI(object):
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                     self.btnOptimizeSkeleton = cmds.button(label="Optimize Skeleton and Mesh", command=self.OptimizeSkeleton)
-                    self.chkbxLoadExtMorphs = uiExt.SaveableCheckBox(self.WINDOW_NAME, label='Load External Morphs', align='left', value=True)
-                    self.chkbxCreateIKConstraints = uiExt.SaveableCheckBox(self.WINDOW_NAME, label='Create IK Constraints', align='left', value=False)
-                    self.chkbxCollapseToes = uiExt.SaveableCheckBox(self.WINDOW_NAME, label='Collapse Toes', align='left', value=False)
+                    self.chkbxLoadExtMorphs = uiExt.SaveableCheckBox(label='Load External Morphs', align='left', value=True)
+                    self.chkbxCreateIKConstraints = uiExt.SaveableCheckBox(label='Create IK Constraints', align='left', value=False)
+                    self.chkbxCollapseToes = uiExt.SaveableCheckBox(label='Collapse Toes', align='left', value=False)
 
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
