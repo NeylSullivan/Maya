@@ -10,8 +10,6 @@ reload(mayaUtils)
 reload(selUtils)
 reload(hazMtp)
 
-
-#
 # konstants
 #
 k_LEFT_NIPPLE_UV = [0.7961298823356628, 0.8489649891853333]
@@ -24,7 +22,6 @@ def TryLoadExternalMorphTargets():
         if mainMesh is None:
             print 'Error! Can`t find body(Torso) mesh'
             return
-
 
         subDirs = [dI for dI in os.listdir(hazMtp.SRC_DIR) if os.path.isdir(os.path.join(hazMtp.SRC_DIR, dI))]
 
@@ -47,9 +44,6 @@ def TryLoadExternalMorphTargets():
 
             cmds.blendShape([morphMesh, mainMesh]) # TODO does it create a new deformer or add to existing?
             cmds.delete(morphMesh)
-
-
-
 
 
 def TryLoadExternalBodymorph():
@@ -143,8 +137,18 @@ def PostprocessGenitaliaObject(genitaliaMeshWildcard):
             # set weight
             cmds.skinPercent(genitaliaSkinCluster, v, transformValue=targetTransformValues)
 
-
         cmds.bakePartialHistory(genitaliaMesh, prePostDeformers=True)
+
+
+def DestroyUnusedJoints(pbDestroyToes):
+    with mayaUtils.DebugTimer('DestroyUnusedJoints'):
+        mayaUtils.DestroyMiddleJoint('lMetatarsals')
+        mayaUtils.DestroyMiddleJoint('rMetatarsals')
+        mayaUtils.DestroyMiddleJoint('pelvis')
+        if pbDestroyToes:
+            mayaUtils.DestroyJointChildren('lToe')
+            mayaUtils.DestroyJointChildren('rToe')
+
 
 def MaskShellsEdgesForTesselation(shape, pUVtile):
     cmds.select(clear=True)
@@ -242,28 +246,16 @@ def AddBreastJoints():
             cmds.joint(name=newJointName)
             cmds.xform(relative=True, translation=[3, 0, 0])
 
-        #Add Nipple Joints And Realighn Breast
         shape = mayaUtils.FindShapeByMat('Torso')#temp shape for finding nipples coordinates
-        tempShape = cmds.duplicate(shape)[0]
-        tempShape = cmds.rename(tempShape, 'TEMP_TORSO')
-        mayaUtils.DeleteFacesByMat(tempShape, ['Torso'], bInvert=True)
-        cmds.bakePartialHistory(tempShape, preCache=True)
 
-        AddNippleJointAndRealighnBreast('Nipple_L', 'Pectoral_L_JIGGLE', k_LEFT_NIPPLE_UV, tempShape)
-        AddNippleJointAndRealighnBreast('Nipple_R', 'Pectoral_R_JIGGLE', k_RIGHT_NIPPLE_UV, tempShape)
+        AddNippleJointAndRealighnBreast('Nipple_L', 'Pectoral_L_JIGGLE', k_LEFT_NIPPLE_UV, shape)
+        AddNippleJointAndRealighnBreast('Nipple_R', 'Pectoral_R_JIGGLE', k_RIGHT_NIPPLE_UV, shape)
 
-        cmds.delete(tempShape)
+        #cmds.delete(tempShape)
 
         #transfer weights to new jiggle joints
         for j in srcJointslist:
             newJointName = j + '_JIGGLE'
-            skinList = cmds.ls(type='skinCluster')
-            for skinClusterName in skinList:
-                cmds.select(clear=True)
-                influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
-                if j in influences:
-                    cmds.skinCluster(skinClusterName, e=True, addInfluence=newJointName, weight=0.0)
-                    continue
             mayaUtils.TransferJointWeights(j, newJointName)
 
 

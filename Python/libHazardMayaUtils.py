@@ -1,8 +1,8 @@
 import os
 import maya.cmds as cmds
 import maya.mel as mel
-import maya.OpenMaya as om
-import maya.api.OpenMaya as om2
+import maya.api.OpenMaya as om
+import maya.api.OpenMayaAnim as OpenMayaAnim
 import time
 import winsound
 import fnmatch
@@ -34,38 +34,29 @@ def SetVertexColors(pVerts, pColor):
         return
     indices = []
     for vertData in pVerts:
-        dagObjectTupple = om2.MGlobal.getSelectionListByName(vertData).getComponent(0)
+        dagObjectTupple = om.MGlobal.getSelectionListByName(vertData).getComponent(0)
         nodeDagPath = dagObjectTupple[0]
-        comp = om2.MFnSingleIndexedComponent(dagObjectTupple[1])
+        comp = om.MFnSingleIndexedComponent(dagObjectTupple[1])
         indices.extend(comp.getElements())
 
-    colors = [om2.MColor(pColor)] * len(indices)
-    mfnMesh = om2.MFnMesh(nodeDagPath)
+    colors = [om.MColor(pColor)] * len(indices)
+    mfnMesh = om.MFnMesh(nodeDagPath)
     mfnMesh.setVertexColors(colors, indices)
 
 
 # Find closest vertex to given uv coordinates
 def GetVertexFromUV(pShape, pUV):
-    mfnMesh = om.MFnMesh(GetDagPath(pShape))
-    numFaces = mfnMesh.numPolygons()
-
-    uUtil = om.MScriptUtil()
-    uUtil.createFromDouble(0.0)
-    uPtr = uUtil.asFloatPtr()
-
-    vUtil = om.MScriptUtil()
-    vUtil.createFromDouble(0.0)
-    vPtr = vUtil.asFloatPtr()
+    nodeDagPath = om.MGlobal.getSelectionListByName(pShape).getDagPath(0)
+    mfnMesh = om.MFnMesh(nodeDagPath)
 
     closestFaceIdx = -1
     closestFaceVertIdx = -1
     minLength = None
 
-    for faceIdx in range(numFaces):
+    for faceIdx in range(mfnMesh.numPolygons):
         vtxCount = mfnMesh.polygonVertexCount(faceIdx)
         for vertIdx in range(vtxCount):
-            mfnMesh.getPolygonUV(faceIdx, vertIdx, uPtr, vPtr)
-            vertUV = [om.MScriptUtil(uPtr).asFloat(), om.MScriptUtil(vPtr).asFloat()]
+            vertUV = mfnMesh.getPolygonUV(faceIdx, vertIdx)
 
             thisLength = hazmath.GetDistance2D(vertUV, pUV)
             if minLength is None or thisLength < minLength:
@@ -75,38 +66,18 @@ def GetVertexFromUV(pShape, pUV):
 
     # Finally convert to object relative vertex index
     if closestFaceIdx > -1:
-        vertexList = om.MIntArray()
-
-        mfnMesh.getPolygonVertices(closestFaceIdx, vertexList)
+        vertexList = mfnMesh.getPolygonVertices(closestFaceIdx)
         meshVertIdx = vertexList[closestFaceVertIdx]
         return '{}.vtx[{}]'.format(pShape, meshVertIdx)
 
     return None
 
 
+def GetClosestVertex(pShape, pos):
+    mfnMesh = om.MFnMesh(om.MGlobal.getSelectionListByName(pShape).getDagPath(0))
+    idx = mfnMesh.getClosestPoint(om.MPoint(pos), om.MSpace.kWorld)[1] # Index of closest face
 
-#https://gist.github.com/HamtaroDeluxe/67a97305ffbe284e5f104d8b4f9eb0f2
-#returns the closest vertex given a mesh and a position [x,y,z] in world space.
-#Uses om.MfnMesh.getClosestPoint() returned face ID and iterates through face's vertices.
-def GetClosestVertex(mayaMesh, pos):
-    doubleArray = om.MScriptUtil()
-    doubleArray.createFromList(pos, 3)
-    mVector = om.MVector(doubleArray.asDoublePtr())#using MVector type to represent position
-
-    mMesh = om.MFnMesh(GetDagPath(mayaMesh))
-    pointA = om.MPoint(mVector)
-    pointB = om.MPoint()
-    space = om.MSpace.kWorld
-
-    util = om.MScriptUtil()
-    util.createFromInt(0)
-    idPointer = util.asIntPtr()
-
-
-    mMesh.getClosestPoint(pointA, pointB, space, idPointer)
-    idx = om.MScriptUtil(idPointer).asInt()
-
-    faceVerts = cmds.ls(cmds.polyListComponentConversion(mayaMesh+'.f[' + str(idx) + ']', ff=True, tv=True), flatten=True)#face's vertices list
+    faceVerts = cmds.ls(cmds.polyListComponentConversion(pShape+'.f[' + str(idx) + ']', ff=True, tv=True), flatten=True)#face's vertices list
     closestVert = None
     minLength = None
     for v in faceVerts:
@@ -116,35 +87,19 @@ def GetClosestVertex(mayaMesh, pos):
             closestVert = v
     return closestVert
 
-def GetDagPath(nodeName):
-    sel = om.MSelectionList()
-    om.MGlobal.getSelectionListByName(nodeName, sel)
-
-    dp = om.MDagPath()
-
-    sel.getDagPath(0, dp)
-    return dp
-
-
-def UvCoordToWorld(U, V, mesh):
-
-    mfnMesh = om.MFnMesh(GetDagPath(mesh))
-    numFaces = mfnMesh.numPolygons()
+def UvCoordToWorld(U, V, pShape):
+    mfnMesh = om.MFnMesh(om.MGlobal.getSelectionListByName(pShape).getDagPath(0))
 
     WSpoint = om.MPoint(0.0, 0.0, 0.0)
 
-    util2 = om.MScriptUtil()
-    util2.createFromList((U, V), 2)
-    float2ParamUV = util2.asFloat2Ptr()
-
-    for i in range(numFaces):
+    for i in range(mfnMesh.numPolygons):
         try:
-            mfnMesh.getPointAtUV(i, WSpoint, float2ParamUV, om.MSpace.kWorld)
+            WSpoint = mfnMesh.getPointAtUV(i, U, V, space=om.MSpace.kWorld, tolerance=0.0)
             break #point is in poly
         except BaseException:
             continue #point not found!
 
-    return [WSpoint[0], WSpoint[1], WSpoint[2]]
+    return list(WSpoint)[:3]
 
 
 def NotifyWithSound():
@@ -449,42 +404,54 @@ def FixMaxInfluencesForSkinCluster(skinClusterName, maxInfluences):
 def TransferJointWeights(oldJointName, newJointName):
     cmds.select(clear=True)
     skinList = cmds.ls(type='skinCluster')
+    start = time.clock()
     print ''
     print 'TransferJointWeights: Transfering weights from \'{}\' to \'{}\''.format(oldJointName, newJointName)
     for skinClusterName in skinList:
         cmds.select(clear=True)
 
         influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
+        #print influences
         if oldJointName not in influences:
-            print 'TransferJointWeights: \'{}\' is NOT influenced by SOURCE joint \'{}\'. Skipping...'.format(skinClusterName, oldJointName)
+            #print 'TransferJointWeights: \'{}\' is NOT influenced by SOURCE joint \'{}\'. Skipping...'.format(skinClusterName, oldJointName)
             continue
-        elif newJointName not in influences: #S hould be added to influences instead
-            print 'TransferJointWeights: \'{}\' is NOT influenced by TARGET joint \'{}\'. Skipping...'.format(skinClusterName, newJointName)
-            continue
-        else:
-            print 'TransferJointWeights: \'{}\' is influenced by joint \'{}\' Processing...'.format(skinClusterName, oldJointName)
+        if newJointName not in influences:
+            cmds.skinCluster(skinClusterName, e=True, addInfluence=newJointName, weight=0.0)
+            influences = cmds.skinCluster(skinClusterName, query=True, influence=True)
+            print 'TransferJointWeights: \'{}\' is NOT influenced by TARGET joint \'{}\'. Adding...'.format(skinClusterName, newJointName)
 
-        cmds.skinCluster(skinClusterName, e=True, selectInfluenceVerts=oldJointName)
-        sel = cmds.ls(selection=True, flatten=True)
-        onlyVertices = cmds.filterExpand(sel, sm=31)
+        print 'TransferJointWeights: \'{}\' is influenced by joint \'{}\' Processing...'.format(skinClusterName, oldJointName)
 
-        if onlyVertices is None:
-            print 'TransferJointWeights: No binded vertices. Skipping...'
-        else:
-            for v in onlyVertices:
-                oldJointWeight = cmds.skinPercent(skinClusterName, v, transform=oldJointName, query=True)
-                newJointWeight = cmds.skinPercent(skinClusterName, v, transform=newJointName, query=True)
-                finalNewJointWeight = min(1.0, newJointWeight + oldJointWeight)
+        skinFn = OpenMayaAnim.MFnSkinCluster(om.MGlobal.getSelectionListByName(skinClusterName).getDependNode(0))
 
-                #print 'TransferJointWeights: Processing vertex {0} with old weight {1} new weight {2}'.format(v, oldJointWeight, finalNewJointWeight)
-                # set weight
-                cmds.skinPercent(skinClusterName, v, transformValue=[(oldJointName, 0), (newJointName, finalNewJointWeight)])
+        oldJointDagPath = om.MGlobal.getSelectionListByName(oldJointName).getDagPath(0)
+        vertsSelectionList, _unusedOldJointWeights = skinFn.getPointsAffectedByInfluence(oldJointDagPath)
+        dagPath, vertComponents = vertsSelectionList.getComponent(0)
 
+        # IMPORTANT!!!
+        # Get joint index from influences array, NOT FROM skinFn.indexForInfluenceObject(...)
+        # it return wrong (old) index if joint is removed from influences of skincluster and/or deleted fron scene
+        oldJointIndex = influences.index(oldJointName)
+        newJointIndex = influences.index(newJointName)
 
-        #print 'TransferJointWeights: Removing \'{}\' from influences of \'{}\''.format(oldJointName, skinClusterName)
+        jointsIndicesIntArray = om.MIntArray()
+        jointsIndicesIntArray.append(oldJointIndex)
+        jointsIndicesIntArray.append(newJointIndex)
+
+        weights = skinFn.getWeights(dagPath, vertComponents, jointsIndicesIntArray)
+
+        for i in xrange(0, len(weights), 2):
+            oldJointWeight = weights[i]
+            newJointWeight = weights[i + 1]
+            finalNewJointWeight = min(1.0, newJointWeight + oldJointWeight)
+            weights[i] = 0.0
+            weights[i + 1] = finalNewJointWeight
+
+        skinFn.setWeights(dagPath, vertComponents, jointsIndicesIntArray, weights)
+        del weights
         cmds.skinCluster(skinClusterName, e=True, removeInfluence=oldJointName)
 
-    print 'TransferJointWeights: Done'
+    print 'TransferJointWeights: Done in {:.2f} seconds'.format(time.clock() - start)
 
 
 
@@ -542,15 +509,6 @@ def DestroyJointChildren(jointName):
 
     print 'DestroyJointChildren: Done'
 
-
-def DestroyUnusedJoints(pbDestroyToes):
-    with DebugTimer('DestroyUnusedJoints'):
-        DestroyMiddleJoint('lMetatarsals')
-        DestroyMiddleJoint('rMetatarsals')
-        DestroyMiddleJoint('pelvis')
-        if pbDestroyToes:
-            DestroyJointChildren('lToe')
-            DestroyJointChildren('rToe')
 
 def CleanUnusedInfluenses(skinCluster):
     cmds.select(clear=True)

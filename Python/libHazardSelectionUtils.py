@@ -1,5 +1,5 @@
 import maya.cmds as cmds
-import maya.api.OpenMaya as om2
+import maya.api.OpenMaya as om
 import libHazardMayaUtils as mayaUtils
 
 reload(mayaUtils)
@@ -60,8 +60,8 @@ def IsUvInRange(pInUV, pFrom, pTo):
 
 #def GetFacesInUVRange(pShape, pFrom=[0, 0], pTo=[1, 1]):
 def GetFacesInUVRange(pShape, pFrom, pTo, pInvertResult=False):
-    nodeDagPath = om2.MGlobal.getSelectionListByName(pShape).getDagPath(0)
-    mfnMesh = om2.MFnMesh(nodeDagPath)
+    nodeDagPath = om.MGlobal.getSelectionListByName(pShape).getDagPath(0)
+    mfnMesh = om.MFnMesh(nodeDagPath)
 
     numFaces = mfnMesh.numPolygons
 

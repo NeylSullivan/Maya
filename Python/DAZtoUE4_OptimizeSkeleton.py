@@ -73,7 +73,7 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalMorphs=False, pCreateIKC
     dazUtils.RemoveObjectsByWildcard(['Fingernails_*'], 'transform')
     mayaUtils.ParentAllGeometryToWorld()
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
-    mayaUtils.DestroyUnusedJoints(pbCollapseToes)
+    dazUtils.DestroyUnusedJoints(pbCollapseToes)
     mayaUtils.ResetBindPoseForAllSkinClusters()
     mayaUtils.SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
 
@@ -100,7 +100,6 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalMorphs=False, pCreateIKC
     mayaUtils.ImportSkinning(skinData, pDeleteFilesAfterImport=True)          # import skinning
 
     cmds.select(clear=True)
-
 
     dazUtils.AddBreastJoints() ################ should nipples need to be skinned or it just points for ue4 sockets?
 
