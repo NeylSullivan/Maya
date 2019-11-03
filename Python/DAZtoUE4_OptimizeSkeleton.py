@@ -111,6 +111,7 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalMorphs=False, pCreateIKC
 
     dazUtils.SetJointsVisualProperties()
 
+
     if pLoadExternalMorphs:
         dazUtils.TryLoadExternalMorphTargets()
 

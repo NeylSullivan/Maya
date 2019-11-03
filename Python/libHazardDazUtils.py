@@ -23,14 +23,19 @@ def TryLoadExternalMorphTargets():
             print 'Error! Can`t find body(Torso) mesh'
             return
 
-        subDirs = [dI for dI in os.listdir(hazMtp.SRC_DIR) if os.path.isdir(os.path.join(hazMtp.SRC_DIR, dI))]
+        subDirs = [dI for dI in os.listdir(hazMtp.GetIntermediateFullPath()) if os.path.isdir(os.path.join(hazMtp.GetIntermediateFullPath(), dI))]
+
+        blendShapeDeformer = None
+
+        PREFIXES = ('MT_', 'MTD_', 'MTB_', 'MTTD_', 'MTTB_')
 
         for subDir in subDirs:
-            if not subDir.startswith('MT_'):
-                print 'SKIPPING directory {}. Reason - unresolved name (should starts with \'MT_\')'.format(subDir)
+
+            if not subDir.startswith(PREFIXES):
+                print 'SKIPPING directory {}. Reason - unresolved name (should starts with \'{}\')'.format(subDir, PREFIXES)
                 continue
 
-            fullSubdirPath = os.path.join(hazMtp.SRC_DIR, subDir)
+            fullSubdirPath = os.path.join(hazMtp.GetIntermediateFullPath(), subDir)
             morphMeshFile = os.path.join(fullSubdirPath, hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
             morphMeshExist = os.path.exists(morphMeshFile)
             print 'Dir: {} SubD mesh: {} Exist: {}'.format(subDir, morphMeshFile, morphMeshExist)
@@ -42,8 +47,15 @@ def TryLoadExternalMorphTargets():
             morphMesh = cmds.rename(morphMesh, subDir) # name new blendshape as it folder
             cmds.xform(morphMesh, absolute=True, translation=[0, 0, 100])
 
-            cmds.blendShape([morphMesh, mainMesh]) # TODO does it create a new deformer or add to existing?
+            blendShapeDeformer = mayaUtils.GetBlendShape(mainMesh)
+
+            if blendShapeDeformer is None:
+                blendShapeDeformer = cmds.blendShape(mainMesh)[0]
+
+            weightsCount = cmds.blendShape(blendShapeDeformer, q=True, weightCount=True) # Index for next added blendshape
+            cmds.blendShape(blendShapeDeformer, edit=True, target=(mainMesh, weightsCount, morphMesh, 1.0))
             cmds.delete(morphMesh)
+
 
 
 def TryLoadExternalBodymorph():
@@ -56,7 +68,7 @@ def TryLoadExternalBodymorph():
         #Mesh unskinned on this stage so we can safely delete all history
         cmds.delete(mainMesh, constructionHistory=True)
 
-        bodyMorphFile = os.path.join(hazMtp.SRC_DIR, hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
+        bodyMorphFile = os.path.join(hazMtp.GetIntermediateFullPath(), hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
         bodyMorphExist = os.path.exists(bodyMorphFile)
         print 'Body morph file: {} Exist: {}'.format(bodyMorphFile, bodyMorphExist)
         if not bodyMorphExist:
