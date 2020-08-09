@@ -15,6 +15,11 @@ reload(hazMtp)
 k_LEFT_NIPPLE_UV = [0.7961298823356628, 0.8489649891853333]
 k_RIGHT_NIPPLE_UV = [0.7028849720954895, 0.8489649891853333]
 
+def GetSharedResourcesPath():
+    fileDir = os.path.dirname(os.path.abspath(__file__))
+    parentDir = os.path.dirname(fileDir)
+    return os.path.join(parentDir, 'Resources')
+
 def TryLoadExternalMorphTargets():
     with mayaUtils.DebugTimer('TryLoadExternalMorphTargets'):
         mainMesh = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
@@ -58,8 +63,8 @@ def TryLoadExternalMorphTargets():
 
 
 
-def TryLoadExternalBodymorph():
-    with mayaUtils.DebugTimer('TryLoadExternalBodymorph'):
+def TryLoadExternalBaseMeshBodyMorph():
+    with mayaUtils.DebugTimer('TryLoadExternalBaseMeshBodyMorph'):
         mainMesh = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
 
         if mainMesh is None:
@@ -84,6 +89,37 @@ def TryLoadExternalBodymorph():
 
         cmds.delete(mainMesh, constructionHistory=True)
         cmds.delete(morphMesh)
+
+def TryLoadExternalUVs():
+    with mayaUtils.DebugTimer('TryLoadExternalUVs'):
+        mainMesh = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
+
+        if mainMesh is None:
+            print 'Error! Can`t find body(Torso) mesh'
+            return
+
+        cmds.delete(mainMesh, constructionHistory=True)
+
+        BASE_MESH_WITH_UV_NAME = 'BaseFemale_UV1'
+
+        uvMeshFile = os.path.join(hazMtp.GetIntermediateFullPath(), BASE_MESH_WITH_UV_NAME + '.obj')
+        uvMeshFileExist = os.path.exists(uvMeshFile)
+
+        print 'UV mesh file: {} Exist: {}'.format(uvMeshFile, uvMeshFileExist)
+        if not uvMeshFileExist:
+            print 'ABORTED: no uv mesh file found'
+            return
+
+        uvMesh = cmds.file(uvMeshFile, i=True, returnNewNodes=True)[0]
+        uvMesh = cmds.rename(uvMesh, 'UV_Source')
+        cmds.xform(uvMesh, absolute=True, translation=[0, 0, 100])
+
+        cmds.polyUVSet(mainMesh, create=True, uvSet='Tesselation_UV')
+        #transferAttributes -transferPositions 0 -transferNormals 0 -transferUVs 1 -sourceUvSet "map1" -targetUvSet "Tesselation_UV" -transferColors 0 -sampleSpace 5 -sourceUvSpace "map1" -targetUvSpace "Tesselation_UV" -searchMethod 3-flipUVs 0 -colorBorders 0
+        cmds.transferAttributes(uvMesh, mainMesh, transferPositions=0, transferNormals=0, transferUVs=1, sourceUvSet='map1', targetUvSet='Tesselation_UV', sampleSpace=5)
+        cmds.delete(mainMesh, constructionHistory=True)
+        cmds.delete(uvMesh)
+
 
 def PostprocessGenitaliaObject(genitaliaMeshWildcard):
     with mayaUtils.DebugTimer('PostprocessGenitaliaObject(genitaliaMeshWildcard={0})'.format(genitaliaMeshWildcard)):
@@ -206,6 +242,22 @@ def SetVertexColorForBorderVertices():
             MaskShellsEdgesForTesselation(shape, 3)
             MaskShellsEdgesForTesselation(shape, 4)
 
+def CollapseUVTiles():
+    cmds.select(clear=True)
+    shape = mayaUtils.FindMeshByWildcard('FemaleBody*', checkForMatWithName='Body') #new name is 'Body'
+    if shape:
+        #CollapseUVTile(shape, 0)
+        CollapseUVTile(shape, 1)
+        CollapseUVTile(shape, 2)
+        CollapseUVTile(shape, 3)
+        CollapseUVTile(shape, 4)
+
+def CollapseUVTile(shape, pUVtile):
+    cmds.select(clear=True)
+    print 'CollapseUVTile shape: {0}, pUVtile: {1}'.format(shape, pUVtile)
+    matched_faces = selUtils.GetFacesInUTile(shape, pUVtile)
+    cmds.polyEditUV(matched_faces, relative=True, uValue=(-1.0*pUVtile))
+    cmds.select(clear=True)
 
 def RenameAndCombineMeshes():
     with mayaUtils.DebugTimer('RenameAndCombineMeshes'):
@@ -217,7 +269,7 @@ def RenameAndCombineMeshes():
         #
         #EYES
         #
-        eyesList = cmds.ls('*Eyes*', type='transform', objectsOnly=True, long=True)
+        eyesList = cmds.ls('*Eyes', type='transform', objectsOnly=True, long=True)
 
         if eyesList and len(eyesList) > 1:
             print '\tCombining {0}'.format(eyesList)
@@ -228,11 +280,14 @@ def RenameAndCombineMeshes():
             for o in eyesList:
                 if cmds.objExists(o):
                     cmds.delete(o)
+        elif eyesList and len(eyesList) == 1:
+            cmds.rename(eyesList[0], 'FemaleEyes')
+            print '\t Renaming SINGLE EYES object'
         else:
             print '\t No EYES meshes to combine'
 
         #Main
-        eyelashesList = cmds.ls('HazardEyelashes_*Shape', type='transform', objectsOnly=True, long=True)
+        eyelashesList = cmds.ls('*Eyelashes*Shape', type='transform', objectsOnly=True, long=True)
         if eyelashesList:
             cmds.rename(eyelashesList[0], 'FemaleEyelashes')
 
@@ -269,6 +324,64 @@ def AddBreastJoints():
         for j in srcJointslist:
             newJointName = j + '_JIGGLE'
             mayaUtils.TransferJointWeights(j, newJointName)
+
+def ReplaceEyesWithExternalMeshes():
+    oldEyes = mayaUtils.FindMeshByWildcard('FemaleEyes')
+    jointLeft = cmds.ls('Eye_L', type='joint')[0]
+    jointRight = cmds.ls('Eye_R', type='joint')[0]
+    print oldEyes
+    print jointLeft
+    print jointRight
+
+    #get old eyes mesh vertical (Y) size
+    oldSizeY = mayaUtils.GetBoundingBox(oldEyes)[1]
+    print oldSizeY
+    cmds.delete(oldEyes)
+    mayaUtils.CleanUnusedMaterials()
+
+    print GetSharedResourcesPath()
+
+    leftEyeFilePath = os.path.join(GetSharedResourcesPath(), 'Eye_Left.obj')
+    print leftEyeFilePath
+    leftEyeMesh = cmds.ls(cmds.file(leftEyeFilePath, i=True, returnNewNodes=True), transforms=True)[0]
+    externalSizeY = mayaUtils.GetBoundingBox(leftEyeMesh)[1]
+    print externalSizeY
+
+    rightEyeFilePath = os.path.join(GetSharedResourcesPath(), 'Eye_Right.obj')
+    rightEyeMesh = cmds.ls(cmds.file(rightEyeFilePath, i=True, returnNewNodes=True), transforms=True)[0]
+
+    scaleFactor = oldSizeY / externalSizeY
+    print 'Scale factor = {}'.format(scaleFactor)
+
+    #scale and move new eyes
+    cmds.scale( scaleFactor, scaleFactor, scaleFactor, leftEyeMesh, relative=True )
+    cmds.matchTransform(leftEyeMesh, jointLeft, position=True, rotation=True)
+    cmds.rotate( 0, '90deg', 0, leftEyeMesh, relative=True )
+    cmds.makeIdentity(leftEyeMesh, apply=True, translate=True, rotate=True, scale=True, normal=1)
+    cmds.delete(leftEyeMesh, constructionHistory=True)
+
+    cmds.scale( scaleFactor, scaleFactor, scaleFactor, rightEyeMesh, relative=True )
+    cmds.matchTransform(rightEyeMesh, jointRight, position=True, rotation=True)
+    cmds.rotate( 0, '90deg', 0, rightEyeMesh, relative=True )
+    cmds.makeIdentity(rightEyeMesh, apply=True, translate=True, rotate=True, scale=True, normal=1)
+    cmds.delete(rightEyeMesh, constructionHistory=True)
+
+    #binding
+    cmds.skinCluster(jointLeft, leftEyeMesh,tsb=True)
+    cmds.select(clear=True)
+
+    cmds.skinCluster(jointRight, rightEyeMesh,tsb=True)
+    cmds.select(clear=True)
+
+    cmds.polyUniteSkinned([leftEyeMesh,rightEyeMesh], ch=False)
+    cmds.rename('FemaleEyes')
+    cmds.select(clear=True)
+
+    sha = cmds.shadingNode('lambert', asShader=True, name='Eyes')
+    sg = cmds.sets(empty=True, renderable=True, noSurfaceShader=True,  name='Eyes_sg')
+    cmds.connectAttr( sha+'.outColor', sg+'.surfaceShader', f=True)
+    cmds.sets('FemaleEyes', e=True, forceElement=sg)
+
 
 
 def AddNippleJointAndRealighnBreast(newJointName, parentName, uvPos, referenceShape):

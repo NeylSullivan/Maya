@@ -3,6 +3,7 @@ import DAZtoUE4_OptimizeSkeleton as DAZtoUE4
 import libHazardMayaUtils as mayaUtils
 import libHazardDazUtils as dazUtils
 import libHazardSkeletonSelectionUtils as skelUtils
+import libHazardMorphTargetProcessing as morphTargetProc
 import libHazardMayaUIExtension as uiExt
 
 reload(DAZtoUE4)
@@ -16,7 +17,7 @@ class DAZtoUE4_UI(object):
 
         self.WINDOW_NAME = 'hazardDAZtoUE4'
         self.WINDOW_TITLE = "DAZ to UE4 Tools"
-        self.WINDOW_SIZE = (260, 500)
+        self.WINDOW_SIZE = (260, 700)
 
         if cmds.window(self.WINDOW_NAME, exists=True):
             cmds.deleteUI(self.WINDOW_NAME)
@@ -32,7 +33,9 @@ class DAZtoUE4_UI(object):
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                     self.btnOptimizeSkeleton = cmds.button(label="Optimize Skeleton and Mesh", command=self.OptimizeSkeleton)
+                    self.chkbxLoadExtBaseMesh = uiExt.SaveableCheckBox(label='Load External BaseMesh', align='left', value=True)
                     self.chkbxLoadExtMorphs = uiExt.SaveableCheckBox(label='Load External Morphs', align='left', value=True)
+                    self.chkbxLoadExtUVs = uiExt.SaveableCheckBox(label='Load External UVs', align='left', value=True)
                     self.chkbxCreateIKConstraints = uiExt.SaveableCheckBox(label='Create IK Constraints', align='left', value=False)
                     self.chkbxCollapseToes = uiExt.SaveableCheckBox(label='Collapse Toes', align='left', value=False)
 
@@ -62,6 +65,7 @@ class DAZtoUE4_UI(object):
         with uiExt.FrameLayout(label='Mesh optimization', collapsable=True, collapse=True, marginHeight=8, marginWidth=8):
             with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                 self.btnOptimizeMeshForBaking = cmds.button(label="Optimize Mesh for Baking", command=self.OptimizeMeshForBaking)
+                self.btnPreProcessMorphsDir = cmds.button(label="PreProcess Morphs Dir", command=self.PreProcessMorphsDir)
 
         cmds.showWindow(self.WINDOW_NAME)
         cmds.window(self.WINDOW_NAME, e=True, widthHeight=self.WINDOW_SIZE)
@@ -71,10 +75,12 @@ class DAZtoUE4_UI(object):
 
     def OptimizeSkeleton(self, _unused):
         reload(DAZtoUE4)
+        loadExtBaseMesh = cmds.checkBox(self.chkbxLoadExtBaseMesh, query=True, value=True)
         loadExtMorphs = cmds.checkBox(self.chkbxLoadExtMorphs, query=True, value=True)
+        loadExtUVs = cmds.checkBox(self.chkbxLoadExtUVs, query=True, value=True)
         createIKConstraints = cmds.checkBox(self.chkbxCreateIKConstraints, query=True, value=True)
         collapseToes = cmds.checkBox(self.chkbxCollapseToes, query=True, value=True)
-        DAZtoUE4.OptimizeSkeleton(collapseToes, loadExtMorphs, createIKConstraints)
+        DAZtoUE4.OptimizeSkeleton(collapseToes, loadExtBaseMesh, loadExtMorphs, loadExtUVs, createIKConstraints)
 
     def CreateOptimizedSkeletonOnlyAndRetargetAnim(self, _unused):
         reload(DAZtoUE4)
@@ -100,6 +106,10 @@ class DAZtoUE4_UI(object):
     def OptimizeMeshForBaking(self, _unused):
         reload(DAZtoUE4)
         DAZtoUE4.OptimizeBodyMeshForBaking()
+
+    def PreProcessMorphsDir(self, _unused):
+        reload (morphTargetProc)
+        morphTargetProc.ProcessSrcDir()
 
     def TriangulateAllSkinnedMeshes(self, _unused):
         reload(dazUtils)

@@ -62,7 +62,7 @@ def OptimizeBodyMeshForBaking():
 #
 #   MAIN
 #
-def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalMorphs=False, pCreateIKConstraints=False):
+def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExternalMorphs=False, pLoadExternalUVs=False, pCreateIKConstraints=False):
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -94,8 +94,12 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalMorphs=False, pCreateIKC
     cmds.delete(oldJoints)
     dazUtils.RenameNewSkeleton()
 
-    if pLoadExternalMorphs: # Do it when mesh unskinned
-        dazUtils.TryLoadExternalBodymorph()
+    if pLoadExternalBaseMesh: # Do it when mesh unskinned
+        dazUtils.TryLoadExternalBaseMeshBodyMorph()
+
+    #load external secondary uv here
+    if pLoadExternalUVs:
+        dazUtils.TryLoadExternalUVs()
 
     mayaUtils.ImportSkinning(skinData, pDeleteFilesAfterImport=True)          # import skinning
 
@@ -121,11 +125,17 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalMorphs=False, pCreateIKC
 
     dazUtils.RenameAndCombineMeshes()
 
-    dazUtils.SetVertexColorForBorderVertices() #for genitalia mesh also
+    #no need anymore, mask for tesselation now writen in secondary uv and loaded externally
+    #dazUtils.SetVertexColorForBorderVertices() #for genitalia mesh also
+    dazUtils.CollapseUVTiles() #use this instead
 
     dazUtils.PostprocessGenitaliaObject('HazardFemaleGenitalia*')
 
     mayaUtils.CleanUnusedMaterials()
+
+    #dazUtils.SafeBakePartialHistoryKeepBlendShapes(shape)
+
+    dazUtils.ReplaceEyesWithExternalMeshes()
 
     print 'FINISHED skeleton and mesh optimization: time taken %.02f seconds' % (time.clock()-start)
     mayaUtils.NotifyWithSound()

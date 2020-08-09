@@ -3,11 +3,13 @@ import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
 import maya.api.OpenMayaAnim as OpenMayaAnim
+import pymel.core as pm
 import time
 import winsound
 import fnmatch
 from contextlib import contextmanager
 import libHazardMathUtils as hazmath
+
 
 reload(hazmath)
 
@@ -20,6 +22,14 @@ def DebugTimer(pName):
     finally:
         end = time.clock()
         print '\nFINISH:     *******     {}      *******\n      Time taken {:.2f} seconds\n\n'.format(pName, end - start)
+
+def GetBoundingBox(pObj):
+    pymelObj = pm.PyNode(pObj)
+    bb = pymelObj.boundingBox()
+    sizeX = bb.width()
+    sizeY = bb.height()
+    sizeZ = bb.depth()
+    return [sizeX, sizeY, sizeZ]
 
 
 def CleanUnusedMaterials():
