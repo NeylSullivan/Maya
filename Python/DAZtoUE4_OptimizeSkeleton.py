@@ -77,18 +77,19 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     mayaUtils.ResetBindPoseForAllSkinClusters()
     mayaUtils.SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
 
+    #return
 
     dazUtils.RenameSkeletonJoints()
-    oldJoints = mayaUtils.GetHierarchy('Root')
+    oldJoints = mayaUtils.GetHierarchy('root')
 
     # collect data for skin export
     skinData = mayaUtils.GetSkinExportData()  # transform, shape, skincluster, jointsList
 
     mayaUtils.ExportSkinning(skinData)          # export skinning
-    dazUtils.DuplicateSkeletonJoints('Root', 'DAZ_')
+    dazUtils.DuplicateSkeletonJoints('root', 'DAZ_')
     dazUtils.FixNewJointsOrientation()
     dazUtils.FixNewJointsAiming()
-    dazUtils.RecreateHierarchy('Root', 'DAZ_')
+    dazUtils.RecreateHierarchy('root', 'DAZ_')
     dazUtils.AlighnTwistJoints()
 
     cmds.delete(oldJoints)
@@ -171,23 +172,23 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
             print 'Deleting {0}'.format(s)
 
     dazUtils.RenameSkeletonJoints()
-    oldJoints = mayaUtils.GetHierarchy('Root')
+    oldJoints = mayaUtils.GetHierarchy('root')
 
-    dazUtils.DuplicateSkeletonJoints('Root', 'DAZ_')
+    dazUtils.DuplicateSkeletonJoints('root', 'DAZ_')
     dazUtils.FixNewJointsOrientation()
     dazUtils.FixNewJointsAiming()
-    dazUtils.RecreateHierarchy('Root', 'DAZ_')
+    dazUtils.RecreateHierarchy('root', 'DAZ_')
     dazUtils.AlighnTwistJoints()
 
     #delete twist joints for animation retargetting/ they are procedurally animated in engine
-    unusedJoints = cmds.ls('DAZ_*_TWIST')
+    unusedJoints = cmds.ls('DAZ_*twist*')
     for j in unusedJoints:
         cmds.delete(j)
         print '\tDeleting {0}'.format(j)
 
 
     print 'Renaming OLD skeleton'
-    oldJoints = mayaUtils.GetHierarchy('Root')
+    oldJoints = mayaUtils.GetHierarchy('root')
     for j in oldJoints:
         mayaUtils.RenameJoint(j, 'OLD_' + j)
 
@@ -196,7 +197,7 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
     cmds.select(clear=True)
     #create constraint from old skeleton to new
     print 'Creating constraints'
-    newJoints = mayaUtils.GetHierarchy('Root')
+    newJoints = mayaUtils.GetHierarchy('root')
 
     for j in newJoints:
         oldJoint = 'OLD_' + j
@@ -236,7 +237,7 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
     #clean scene after finishing
     print 'Deleting old skeleton'
     cmds.select(clear=True)
-    cmds.select(mayaUtils.GetHierarchy('OLD_Root'))
+    cmds.select(mayaUtils.GetHierarchy('OLD_root'))
     cmds.delete()
 
     print 'FINISHED animation retargeting: time taken %.02f seconds' % (time.clock()-start)

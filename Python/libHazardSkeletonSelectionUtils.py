@@ -42,7 +42,7 @@ def RemoveJointFromList(inOutJointList, jointToRemove):
 def GetFaceRig():
     rig = []
 
-    head = FindJoint('Head')
+    head = FindJoint('head')
     if not head:
         return
     rig.append(head)
@@ -57,8 +57,8 @@ def GetFaceRig():
 
     rig = list(set(rig))
 
-    RemoveJointFromList(rig, 'FK_CAMERA_SOCKET')
-    RemoveJointsFromListByWildCard(rig, '*_END')
+    RemoveJointFromList(rig, 'camera')
+    RemoveJointsFromListByWildCard(rig, '*_end_*')
 
     print rig
     return rig
@@ -97,26 +97,26 @@ def GetMeshesJoints(meshes):
     allJoints = list(set(allJoints))
 
     UpdateListWithAllThemParents(allJoints)
-    RemoveJointsFromListByWildCard(allJoints, '*_END') # END joints not skinned but to be sure... they never should be exported to ue4
+    RemoveJointsFromListByWildCard(allJoints, '*_end_*') # END joints not skinned but to be sure... they never should be exported to ue4
 
     return allJoints
 
 def GetSpecialJoints():
     specialJoints = []
 
-    sockets = cmds.ls('Camera', type='joint')
+    sockets = cmds.ls('camera', type='joint')
     if sockets:
         specialJoints.extend(sockets)
 
-    nipples = cmds.ls('Nipple_?', type='joint')
+    nipples = cmds.ls('nipple_?', type='joint')
     if nipples:
         specialJoints.extend(nipples)
 
-    jiggles = cmds.ls('*_JIGGLE', type='joint')
+    jiggles = cmds.ls('*_jiggle_*', type='joint')
     if jiggles:
         specialJoints.extend(jiggles)
 
-    eyes = cmds.ls('Eye_?', type='joint')
+    eyes = cmds.ls('eye_?', type='joint')
     if eyes:
         specialJoints.extend(eyes)
 
@@ -143,7 +143,7 @@ def GetIKJoints(sourceJointsList):
                 #print cmds.nodeType(o)
 
 
-    ikJoints = fnmatch.filter(ikJoints, 'IK_*')
+    ikJoints = fnmatch.filter(ikJoints, 'ik_*')
     UpdateListWithAllThemParents(ikJoints)
 
     return ikJoints
@@ -180,18 +180,18 @@ def SelectJointsForSelectedMeshes(bKeepSelection=True, bIncludeSpecialJoints=Tru
         cmds.select(jointsForSelection, add=True)
 
 def SelectBodyAnimRelevantJoints():
-    jointsToSelect = mayaUtils.GetHierarchy('Root')
-    RemoveJointsFromListByWildCard(jointsToSelect, '*_END')
-    RemoveJointsFromListByWildCard(jointsToSelect, '*_TWIST')
-    RemoveJointsFromListByWildCard(jointsToSelect, '*_BEND')
-    RemoveJointsFromListByWildCard(jointsToSelect, '*_JIGGLE')
-    RemoveJointsFromListByWildCard(jointsToSelect, 'Nipple_?')
+    jointsToSelect = mayaUtils.GetHierarchy('root')
+    RemoveJointsFromListByWildCard(jointsToSelect, '*_end_*')
+    RemoveJointsFromListByWildCard(jointsToSelect, '*_twist_*')
+    RemoveJointsFromListByWildCard(jointsToSelect, '*_bend_*')
+    RemoveJointsFromListByWildCard(jointsToSelect, '*_jiggle_*')
+    RemoveJointsFromListByWildCard(jointsToSelect, 'nipple_?')
 
-    if 'Head' in jointsToSelect:
-        headChildren = cmds.listRelatives('Head', allDescendents=True, type="joint")
+    if 'head' in jointsToSelect:
+        headChildren = cmds.listRelatives('head', allDescendents=True, type="joint")
         if headChildren:
             for j in headChildren:
-                if not j == 'Camera': #keep camera socket
+                if not j == 'camera': #keep camera socket
                     RemoveJointFromList(jointsToSelect, j)
 
     jointsToSelect = list(set(jointsToSelect))

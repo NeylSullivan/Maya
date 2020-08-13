@@ -411,7 +411,7 @@ def FixMaxInfluencesForSkinCluster(skinClusterName, maxInfluences):
 
     print 'Skincluster "{}". Mesh: {} Target max influense: {} Verts num: {}. {}'.format(skinClusterName, mesh, maxInfluences, vertsNum, resultMessage)
 
-def TransferJointWeights(oldJointName, newJointName):
+def TransferJointWeights(oldJointName, newJointName, transferFraction=1.0):
     cmds.select(clear=True)
     skinList = cmds.ls(type='skinCluster')
     start = time.clock()
@@ -436,6 +436,10 @@ def TransferJointWeights(oldJointName, newJointName):
 
         oldJointDagPath = om.MGlobal.getSelectionListByName(oldJointName).getDagPath(0)
         vertsSelectionList, _unusedOldJointWeights = skinFn.getPointsAffectedByInfluence(oldJointDagPath)
+        #print vertsSelectionList
+        if vertsSelectionList.isEmpty():
+            print 'No verts actually affected!!! Skipped... '
+            continue
         dagPath, vertComponents = vertsSelectionList.getComponent(0)
 
         # IMPORTANT!!!
@@ -453,13 +457,17 @@ def TransferJointWeights(oldJointName, newJointName):
         for i in xrange(0, len(weights), 2):
             oldJointWeight = weights[i]
             newJointWeight = weights[i + 1]
-            finalNewJointWeight = min(1.0, newJointWeight + oldJointWeight)
-            weights[i] = 0.0
+            finalNewJointWeight = min(1.0, newJointWeight + (oldJointWeight * transferFraction))
+            if(transferFraction >= 0.99999):
+                weights[i] = 0.0
+            else:
+                weights[i] = oldJointWeight * (1.0 - transferFraction)
             weights[i + 1] = finalNewJointWeight
 
         skinFn.setWeights(dagPath, vertComponents, jointsIndicesIntArray, weights)
         del weights
-        cmds.skinCluster(skinClusterName, e=True, removeInfluence=oldJointName)
+        if(transferFraction >= 0.99999):
+            cmds.skinCluster(skinClusterName, e=True, removeInfluence=oldJointName)
 
     print 'TransferJointWeights: Done in {:.2f} seconds'.format(time.clock() - start)
 
