@@ -760,6 +760,25 @@ def DuplicateSkeletonJoints(oldSkeletonRoot, newJointsPrefix):
             newJoint = cmds.joint(p=pos, name=newName)
             cmds.xform(newJoint, r=True, ro=oldOrientation)
 
+def AimJointForUnreal(joint, target, inAimVector=[1.0, 0.0, 0.0], skipAxis='x'):
+    print '\tAim Joint {0} to {1}'.format(joint, target)
+    constraint = cmds.aimConstraint(target, joint, worldUpType='vector', aimVector=inAimVector, worldUpVector=[0, 0, 1], skip=skipAxis)
+    cmds.delete(constraint)
+
+# Custom aiming for foot joints (aim Y, keep X)
+def AimFootJoint(footJoint, toeTarget, inAimVector, inUpVector):
+    footPos = cmds.xform(footJoint, t=True, ws=True, q=True)
+    toePos = cmds.xform(toeTarget, t=True, ws=True, q=True)
+
+    locatorPos = toePos
+    locatorPos[1] = footPos[1] # Set Y from foot
+
+    locator = cmds.spaceLocator()
+    cmds.xform(locator, ws=True, translation=locatorPos)
+
+    constraint = cmds.aimConstraint(locator, footJoint, aimVector=inAimVector, worldUpType='Vector', skip='z', upVector=inUpVector)
+    cmds.delete(constraint)
+    cmds.delete(locator)
 
 def FixNewJointsOrientation():
     with mayaUtils.DebugTimer('FixNewJointsOrientation'):
@@ -770,13 +789,19 @@ def FixNewJointsOrientation():
         mayaUtils.RotateJoint("DAZ_pelvis", -90, 0, 90)
         #mayaUtils.RotateJoint("DAZ_Spine_1", 90, 0, 90)
         mayaUtils.RotateJoint("DAZ_spine_01", -90, 0, 90)
+        AimJointForUnreal('DAZ_spine_01', 'DAZ_spine_02')
+
         mayaUtils.RotateJoint("DAZ_spine_02", -90, 0, 90)
+        AimJointForUnreal('DAZ_spine_02', 'DAZ_spine_03')
+
         mayaUtils.RotateJoint("DAZ_spine_03", -90, 0, 90)
+        AimJointForUnreal('DAZ_spine_03', 'DAZ_neck_01')
 
         mayaUtils.RotateJoint("DAZ_breast_l", 0, -90, 0)
         mayaUtils.RotateJoint("DAZ_breast_r", 0, -90, 0)
 
         mayaUtils.RotateJoint("DAZ_neck_01", -90, 0, 90)
+        AimJointForUnreal('DAZ_neck_01', 'DAZ_head')
         #mayaUtils.RotateJoint("DAZ_Neck_2", 90, 0, 90)
         mayaUtils.RotateJoint("DAZ_head", -90, 0, 90)
 
@@ -787,6 +812,7 @@ def FixNewJointsOrientation():
         # copy rotation from Leg
         cmds.xform('DAZ_foot_l', absolute=True, rotation=cmds.xform('calf_l', q=True, absolute=True, rotation=True))
         mayaUtils.RotateJoint("DAZ_foot_l", -90, 0, 90)
+        AimFootJoint('DAZ_foot_l', 'DAZ_ball_l', inAimVector=[0,-1,0], inUpVector=[1,0,0])
         mayaUtils.RotateJoint("DAZ_ball_l", 0, -90, 0) #TODO near but not ideal
 
         # Leg Right
@@ -796,11 +822,13 @@ def FixNewJointsOrientation():
         # copy rotation from Leg
         cmds.xform('DAZ_foot_r', absolute=True, rotation=cmds.xform('calf_r', q=True, absolute=True, rotation=True))
         mayaUtils.RotateJoint("DAZ_foot_r", 90, 0, -90)
+        AimFootJoint('DAZ_foot_r', 'DAZ_ball_r', inAimVector=[0,1,0], inUpVector=[-1,0,0])
         mayaUtils.RotateJoint("DAZ_ball_r", 180, 90, 0)
 
         # Arm Left
 
         mayaUtils.RotateJoint("DAZ_clavicle_l", -90)
+        AimJointForUnreal('DAZ_clavicle_l', 'DAZ_upperarm_l')
         mayaUtils.RotateJoint("DAZ_upperarm_l", -90)
         mayaUtils.RotateJoint("DAZ_upperarm_twist_01_l", -90)
         mayaUtils.RotateJoint("DAZ_lowerarm_l", -90)
@@ -834,6 +862,7 @@ def FixNewJointsOrientation():
         # Arm Right
 
         mayaUtils.RotateJoint("DAZ_clavicle_r", 90)
+        AimJointForUnreal('DAZ_clavicle_r', 'DAZ_upperarm_r', inAimVector=[-1.0, 0.0, 0.0])
         mayaUtils.RotateJoint("DAZ_upperarm_r", 90)
         mayaUtils.RotateJoint("DAZ_upperarm_twist_01_r", 90)
         mayaUtils.RotateJoint("DAZ_lowerarm_r", 90)
@@ -889,56 +918,6 @@ def FixNewJointsOrientation():
 
         cmds.select(clear=True)
 
-def AimJointForUnreal(joint, target, inAimVector=[1.0, 0.0, 0.0]):
-    constraint = cmds.aimConstraint(target, joint, worldUpType='vector', aimVector=inAimVector, worldUpVector=[0, 0, 1])
-    print '\tAimJoint {0} to {1}'.format(joint, target)
-    cmds.delete(constraint)
-
-def AimJoint(joint, target, inAimVector=[1.0, 0.0, 0.0]):
-    constraint = cmds.aimConstraint(target, joint, worldUpType='vector', aimVector=inAimVector, worldUpVector=[0, 0, 1])
-    print '\tAimJoint {0} to {1}'.format(joint, target)
-    cmds.delete(constraint)
-
-# Custom aiming for foot joints (aim Y, keep X)
-def AimFootJoint(footJoint, toeTarget):
-    footPos = cmds.xform(footJoint, t=True, ws=True, q=True)
-    toePos = cmds.xform(toeTarget, t=True, ws=True, q=True)
-
-    locatorPos = toePos
-    locatorPos[1] = footPos[1] # Set Y from foot
-
-    locator = cmds.spaceLocator()
-    cmds.xform(locator, ws=True, translation=locatorPos)
-
-    constraint = cmds.aimConstraint(locator, footJoint, aimVector=[0, 1, 0], worldUpType='Vector', upVector=[1, 0, 0], worldUpVector=[0, -1, 0], skip='y')
-    cmds.delete(constraint)
-    cmds.delete(locator)
-
-
-def FixNewJointsAiming(prefix='DAZ_'):
-    with mayaUtils.DebugTimer('FixNewJointsAiming'):
-        #AimJoint(prefix + 'Spine_1', prefix + 'Spine_2')
-        AimJoint(prefix + 'spine_01', prefix + 'spine_02')
-        AimJoint(prefix + 'spine_02', prefix + 'spine_03')
-        AimJoint(prefix + 'spine_03', prefix + 'neck_01')
-        AimJoint(prefix + 'neck_01', prefix + 'head')
-        #AimJoint(prefix + 'Neck_2', prefix + 'Head')
-
-        AimJoint(prefix + 'clavicle_l', prefix + 'upperarm_l')
-        AimJoint(prefix + 'upperarm_l', prefix + 'lowerarm_l')
-        AimJoint(prefix + 'lowerarm_l', prefix + 'hand_l')
-
-        AimJoint(prefix + 'clavicle_r', prefix + 'upperarm_r')
-        AimJoint(prefix + 'upperarm_r', prefix + 'lowerarm_r')
-        AimJoint(prefix + 'lowerarm_r', prefix + 'hand_r')
-
-        AimJoint(prefix + 'thigh_l', prefix + 'calf_l', inAimVector=[-1.0, 0.0, 0.0])
-        AimJoint(prefix + 'calf_l', 'foot_l')
-        AimJoint(prefix + 'thigh_r', prefix + 'calf_r')
-        AimJoint(prefix + 'calf_r', 'foot_r')
-
-        AimFootJoint(prefix + 'foot_l', prefix + 'ball_l')
-        AimFootJoint(prefix + 'foot_r', prefix + 'ball_r')
 
 def AlighnTwistJoints(prefix='DAZ_'):
     with mayaUtils.DebugTimer('AlighnTwistJoints'):
@@ -950,6 +929,19 @@ def AlighnTwistJoints(prefix='DAZ_'):
             cmds.joint(j, e=True, position=newPos, relative=True)
             cmds.joint(j, e=True, orientation=[0.0, 0.0, 0.0])
             cmds.xform(j, rotation=[0.0, 0.0, 0.0])
+
+#use it after hierarchy recreation
+def JointOrientToRotation(skeletonRoot):
+    with mayaUtils.DebugTimer('JointOrientToRotation'):
+        jointsList = mayaUtils.GetHierarchy(skeletonRoot)
+        cmds.makeIdentity(jointsList, n=0, s=0, r=1, t=0, apply=True, pn=0)
+
+        for j in jointsList:
+            #remember
+            orient = cmds.joint(j, q=True, orientation=True)
+            #reset
+            cmds.joint(j, e=True, orientation=[0,0,0])
+            cmds.xform(j, relative=True, rotation=orient)
 
 
 def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
@@ -1003,6 +995,7 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
         #         for c in childrenList:
         #             cmds.delete(c)
         #             print 'Deleting {0} - child joint of {1} '.format(c, newJointsPrefix + j)
+
 
 
 def SetJointsVisualProperties():

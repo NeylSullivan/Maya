@@ -77,8 +77,6 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     mayaUtils.ResetBindPoseForAllSkinClusters()
     mayaUtils.SetSkinMethodForAllSkinClusters(0)  # set skinning type to linear
 
-    #return
-
     dazUtils.RenameSkeletonJoints()
     oldJoints = mayaUtils.GetHierarchy('root')
 
@@ -88,8 +86,8 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     mayaUtils.ExportSkinning(skinData)          # export skinning
     dazUtils.DuplicateSkeletonJoints('root', 'DAZ_')
     dazUtils.FixNewJointsOrientation()
-    #dazUtils.FixNewJointsAiming()
     dazUtils.RecreateHierarchy('root', 'DAZ_')
+    dazUtils.JointOrientToRotation('DAZ_root')
     dazUtils.AlighnTwistJoints()
 
     cmds.delete(oldJoints)
@@ -177,9 +175,8 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
     dazUtils.DuplicateSkeletonJoints('root', 'DAZ_')
     
     dazUtils.FixNewJointsOrientation()
-    #dazUtils.FixNewJointsAiming()
     dazUtils.RecreateHierarchy('root', 'DAZ_')
-    dazUtils.AlighnTwistJoints()
+    dazUtils.JointOrientToRotation('DAZ_root')
 
     #delete twist joints for animation retargetting/ they are procedurally animated in engine
     unusedJoints = cmds.ls('DAZ_*twist*')

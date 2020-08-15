@@ -3,7 +3,6 @@ import maya.cmds as cmds
 import maya.mel as mel
 import maya.api.OpenMaya as om
 import maya.api.OpenMayaAnim as OpenMayaAnim
-import pymel.core as pm
 import time
 import winsound
 import fnmatch
@@ -24,6 +23,7 @@ def DebugTimer(pName):
         print '\nFINISH:     *******     {}      *******\n      Time taken {:.2f} seconds\n\n'.format(pName, end - start)
 
 def GetBoundingBox(pObj):
+    import pymel.core as pm
     pymelObj = pm.PyNode(pObj)
     bb = pymelObj.boundingBox()
     sizeX = bb.width()
