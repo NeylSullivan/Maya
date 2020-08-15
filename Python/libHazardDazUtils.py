@@ -198,7 +198,10 @@ def DestroyUnusedJoints(pbDestroyToes):
         #spine1
         mayaUtils.TransferJointWeights('abdomenLower', 'abdomenUpper', 0.33)#transfer 33 persent to child
         mayaUtils.DestroyMiddleJoint('abdomenLower') # and 67 percent to parent then delete
-        mayaUtils.DestroyMiddleJoint('neckUpper')#Neck
+        #Neck
+        mayaUtils.TransferJointWeights('neckUpper', 'head', 0.33)#transfer 33 persent to child
+        mayaUtils.DestroyMiddleJoint('neckUpper')
+        
         mayaUtils.DestroyMiddleJoint('lCarpal1')
         mayaUtils.DestroyMiddleJoint('lCarpal2')
         mayaUtils.DestroyMiddleJoint('lCarpal3')
@@ -761,29 +764,30 @@ def DuplicateSkeletonJoints(oldSkeletonRoot, newJointsPrefix):
 def FixNewJointsOrientation():
     with mayaUtils.DebugTimer('FixNewJointsOrientation'):
         # Root
-        mayaUtils.RotateJoint("DAZ_root", 00, 0, 0)
+        mayaUtils.RotateJoint("DAZ_root", 0, 0, 0)
 
         # Spine
-        mayaUtils.RotateJoint("DAZ_pelvis", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_pelvis", -90, 0, 90)
         #mayaUtils.RotateJoint("DAZ_Spine_1", 90, 0, 90)
-        mayaUtils.RotateJoint("DAZ_spine_01", 90, 0, 90)
-        mayaUtils.RotateJoint("DAZ_spine_02", 90, 0, 90)
-        mayaUtils.RotateJoint("DAZ_spine_03", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_spine_01", -90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_spine_02", -90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_spine_03", -90, 0, 90)
 
         mayaUtils.RotateJoint("DAZ_breast_l", 0, -90, 0)
         mayaUtils.RotateJoint("DAZ_breast_r", 0, -90, 0)
 
-        mayaUtils.RotateJoint("DAZ_neck_01", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_neck_01", -90, 0, 90)
         #mayaUtils.RotateJoint("DAZ_Neck_2", 90, 0, 90)
-        mayaUtils.RotateJoint("DAZ_head", 90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_head", -90, 0, 90)
 
         # Leg Left
-        mayaUtils.RotateJoint("DAZ_thigh_l", 90, 0, -90)
-        mayaUtils.RotateJoint("DAZ_thigh_twist_01_l", 90, 0, -90)
-        mayaUtils.RotateJoint("DAZ_calf_l", 90, 0, -90)
+        mayaUtils.RotateJoint("DAZ_thigh_l", -90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_thigh_twist_01_l", -90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_calf_l", -90, 0, 90)
         # copy rotation from Leg
         cmds.xform('DAZ_foot_l', absolute=True, rotation=cmds.xform('calf_l', q=True, absolute=True, rotation=True))
-        mayaUtils.RotateJoint("DAZ_foot_l", 0, -90, 0)
+        mayaUtils.RotateJoint("DAZ_foot_l", -90, 0, 90)
+        mayaUtils.RotateJoint("DAZ_ball_l", 0, -90, 0) #TODO near but not ideal
 
         # Leg Right
         mayaUtils.RotateJoint("DAZ_thigh_r", 90, 0, -90)
@@ -791,77 +795,78 @@ def FixNewJointsOrientation():
         mayaUtils.RotateJoint("DAZ_calf_r", 90, 0, -90)
         # copy rotation from Leg
         cmds.xform('DAZ_foot_r', absolute=True, rotation=cmds.xform('calf_r', q=True, absolute=True, rotation=True))
-        mayaUtils.RotateJoint("DAZ_ball_r", 0, -90, 0)
+        mayaUtils.RotateJoint("DAZ_foot_r", 90, 0, -90)
+        mayaUtils.RotateJoint("DAZ_ball_r", 180, 90, 0)
 
         # Arm Left
 
-        mayaUtils.RotateJoint("DAZ_clavicle_l", 90)
-        mayaUtils.RotateJoint("DAZ_upperarm_l", 90)
-        mayaUtils.RotateJoint("DAZ_upperarm_twist_01_l", 90)
-        mayaUtils.RotateJoint("DAZ_lowerarm_l", 90)
-        mayaUtils.RotateJoint("DAZ_lowerarm_twist_01_l", 90)
-        mayaUtils.RotateJoint("DAZ_hand_l", 90)
+        mayaUtils.RotateJoint("DAZ_clavicle_l", -90)
+        mayaUtils.RotateJoint("DAZ_upperarm_l", -90)
+        mayaUtils.RotateJoint("DAZ_upperarm_twist_01_l", -90)
+        mayaUtils.RotateJoint("DAZ_lowerarm_l", -90)
+        mayaUtils.RotateJoint("DAZ_lowerarm_twist_01_l", -90)
+        mayaUtils.RotateJoint("DAZ_hand_l", -180)
 
-        mayaUtils.RotateJoint('DAZ_thumb_01_l', 180)
-        mayaUtils.RotateJoint('DAZ_thumb_02_l', 180)
-        mayaUtils.RotateJoint('DAZ_thumb_03_l', 180)
+        mayaUtils.RotateJoint('DAZ_thumb_01_l', -90)
+        mayaUtils.RotateJoint('DAZ_thumb_02_l', -90)
+        mayaUtils.RotateJoint('DAZ_thumb_03_l', -90)
 
         #mayaUtils.RotateJoint('DAZ_HandIndex0_L', 90)
-        mayaUtils.RotateJoint('DAZ_index_01_l', 90)
-        mayaUtils.RotateJoint('DAZ_index_02_l', 90)
-        mayaUtils.RotateJoint('DAZ_index_03_l', 90)
+        mayaUtils.RotateJoint('DAZ_index_01_l', 180)
+        mayaUtils.RotateJoint('DAZ_index_02_l', 180)
+        mayaUtils.RotateJoint('DAZ_index_03_l', 180)
 
         #mayaUtils.RotateJoint('DAZ_HandMid0_L', 90)
-        mayaUtils.RotateJoint('DAZ_middle_01_l', 90)
-        mayaUtils.RotateJoint('DAZ_middle_02_l', 90)
-        mayaUtils.RotateJoint('DAZ_middle_03_l', 90)
+        mayaUtils.RotateJoint('DAZ_middle_01_l', 180)
+        mayaUtils.RotateJoint('DAZ_middle_02_l', 180)
+        mayaUtils.RotateJoint('DAZ_middle_03_l', 180)
 
         #mayaUtils.RotateJoint('DAZ_HandRing0_L', 90)
-        mayaUtils.RotateJoint('DAZ_ring_01_l', 90)
-        mayaUtils.RotateJoint('DAZ_ring_02_l', 90)
-        mayaUtils.RotateJoint('DAZ_ring_03_l', 90)
+        mayaUtils.RotateJoint('DAZ_ring_01_l', 180)
+        mayaUtils.RotateJoint('DAZ_ring_02_l', 180)
+        mayaUtils.RotateJoint('DAZ_ring_03_l', 180)
 
         #mayaUtils.RotateJoint('DAZ_HandPinky0_L', 90)
-        mayaUtils.RotateJoint('DAZ_pinky_01_l', 90)
-        mayaUtils.RotateJoint('DAZ_pinky_02_l', 90)
-        mayaUtils.RotateJoint('DAZ_pinky_03_l', 90)
+        mayaUtils.RotateJoint('DAZ_pinky_01_l', 180)
+        mayaUtils.RotateJoint('DAZ_pinky_02_l', 180)
+        mayaUtils.RotateJoint('DAZ_pinky_03_l', 180)
 
         # Arm Right
 
-        mayaUtils.RotateJoint("DAZ_clavicle_r", -90, 180)
-        mayaUtils.RotateJoint("DAZ_upperarm_r", -90, 180)
-        mayaUtils.RotateJoint("DAZ_upperarm_twist_01_r", -90, 180)
-        mayaUtils.RotateJoint("DAZ_lowerarm_r", -90, 180)
-        mayaUtils.RotateJoint("DAZ_lowerarm_twist_01_r", -90, 180)
-        mayaUtils.RotateJoint("DAZ_hand_r", -90, 180)
+        mayaUtils.RotateJoint("DAZ_clavicle_r", 90)
+        mayaUtils.RotateJoint("DAZ_upperarm_r", 90)
+        mayaUtils.RotateJoint("DAZ_upperarm_twist_01_r", 90)
+        mayaUtils.RotateJoint("DAZ_lowerarm_r", 90)
+        mayaUtils.RotateJoint("DAZ_lowerarm_twist_01_r", 90)
+        mayaUtils.RotateJoint("DAZ_hand_r", 0)
 
-        mayaUtils.RotateJoint('DAZ_thumb_01_r', -180, 180)
-        mayaUtils.RotateJoint('DAZ_thumb_02_r', -180, 180)
-        mayaUtils.RotateJoint('DAZ_thumb_03_r', -180, 180)
+        mayaUtils.RotateJoint('DAZ_thumb_01_r', 90)
+        mayaUtils.RotateJoint('DAZ_thumb_02_r', 90)
+        mayaUtils.RotateJoint('DAZ_thumb_03_r', 90)
 
         #mayaUtils.RotateJoint('DAZ_HandIndex0_R', -90, 180)
-        mayaUtils.RotateJoint('DAZ_index_01_r', -90, 180)
-        mayaUtils.RotateJoint('DAZ_index_02_r', -90, 180)
-        mayaUtils.RotateJoint('DAZ_index_03_r', -90, 180)
+        mayaUtils.RotateJoint('DAZ_index_01_r', 0)
+        mayaUtils.RotateJoint('DAZ_index_02_r', 0)
+        mayaUtils.RotateJoint('DAZ_index_03_r', 0)
 
         #mayaUtils.RotateJoint('DAZ_HandMid0_R', -90, 180)
-        mayaUtils.RotateJoint('DAZ_middle_01_r', -90, 180)
-        mayaUtils.RotateJoint('DAZ_middle_02_r', -90, 180)
-        mayaUtils.RotateJoint('DAZ_middle_03_r', -90, 180)
+        mayaUtils.RotateJoint('DAZ_middle_01_r', 0)
+        mayaUtils.RotateJoint('DAZ_middle_02_r', 0)
+        mayaUtils.RotateJoint('DAZ_middle_03_r', 0)
 
         #mayaUtils.RotateJoint('DAZ_HandRing0_R', -90, 180)
-        mayaUtils.RotateJoint('DAZ_ring_01_r', -90, 180)
-        mayaUtils.RotateJoint('DAZ_ring_02_r', -90, 180)
-        mayaUtils.RotateJoint('DAZ_ring_03_r', -90, 180)
+        mayaUtils.RotateJoint('DAZ_ring_01_r', 0)
+        mayaUtils.RotateJoint('DAZ_ring_02_r', 0)
+        mayaUtils.RotateJoint('DAZ_ring_03_r', 0)
 
         #mayaUtils.RotateJoint('DAZ_HandPinky0_R', -90, 180)
-        mayaUtils.RotateJoint('DAZ_pinky_01_r', -90, 180)
-        mayaUtils.RotateJoint('DAZ_pinky_02_r', -90, 180)
-        mayaUtils.RotateJoint('DAZ_pinky_03_r', -90, 180)
+        mayaUtils.RotateJoint('DAZ_pinky_01_r', 0)
+        mayaUtils.RotateJoint('DAZ_pinky_02_r', 0)
+        mayaUtils.RotateJoint('DAZ_pinky_03_r', 0)
 
         #Toes
         for t in ['toebig_01', 'toebig_02', 'toeindex_01', 'toeindex_02', 'toemid_01', 'toemid_02', 'toering_01', 'toering_02', 'toepinky_01', 'toepinky_02']:
-            mayaUtils.RotateJoint('DAZ_'+t+'_l', 0, -90)
+            mayaUtils.RotateJoint('DAZ_'+t+'_l', 0, 90)
             mayaUtils.RotateJoint('DAZ_'+t+'_r', 0, -90)
 
 
@@ -884,8 +889,13 @@ def FixNewJointsOrientation():
 
         cmds.select(clear=True)
 
-def AimJoint(joint, target):
-    constraint = cmds.aimConstraint(target, joint, worldUpType='vector', worldUpVector=[0, 0, 1])
+def AimJointForUnreal(joint, target, inAimVector=[1.0, 0.0, 0.0]):
+    constraint = cmds.aimConstraint(target, joint, worldUpType='vector', aimVector=inAimVector, worldUpVector=[0, 0, 1])
+    print '\tAimJoint {0} to {1}'.format(joint, target)
+    cmds.delete(constraint)
+
+def AimJoint(joint, target, inAimVector=[1.0, 0.0, 0.0]):
+    constraint = cmds.aimConstraint(target, joint, worldUpType='vector', aimVector=inAimVector, worldUpVector=[0, 0, 1])
     print '\tAimJoint {0} to {1}'.format(joint, target)
     cmds.delete(constraint)
 
@@ -922,7 +932,7 @@ def FixNewJointsAiming(prefix='DAZ_'):
         AimJoint(prefix + 'upperarm_r', prefix + 'lowerarm_r')
         AimJoint(prefix + 'lowerarm_r', prefix + 'hand_r')
 
-        AimJoint(prefix + 'thigh_l', prefix + 'calf_l')
+        AimJoint(prefix + 'thigh_l', prefix + 'calf_l', inAimVector=[-1.0, 0.0, 0.0])
         AimJoint(prefix + 'calf_l', 'foot_l')
         AimJoint(prefix + 'thigh_r', prefix + 'calf_r')
         AimJoint(prefix + 'calf_r', 'foot_r')
@@ -960,6 +970,10 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
                 newParentName = newJointsPrefix + 'foot_l' #not to lMetatarsals
             elif oldName == 'ball_r':
                 newParentName = newJointsPrefix + 'foot_r' #not to rMetatarsals
+            elif oldName == 'head':
+                newParentName = newJointsPrefix + 'neck_01' #not to neckUpper
+            elif oldName == 'spine_01':
+                newParentName = newJointsPrefix + 'pelvis' #not to abdomenLower
 
             #print newParentName
             cmds.parent(newName, newParentName)
@@ -976,7 +990,7 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
                     cmds.parent(child, parent[0])
 
         #Remove unused bones if exists (for animation retargeting mode)
-        unusedList = ['lMetatarsals', 'rMetatarsals']
+        unusedList = ['lMetatarsals', 'rMetatarsals', 'abdomenLower', 'neckUpper', 'original_pelvis_to_delete']
         for j in unusedList:
             if cmds.objExists(newJointsPrefix + j): #still use prefix
                 cmds.delete(newJointsPrefix + j)

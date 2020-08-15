@@ -88,7 +88,7 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     mayaUtils.ExportSkinning(skinData)          # export skinning
     dazUtils.DuplicateSkeletonJoints('root', 'DAZ_')
     dazUtils.FixNewJointsOrientation()
-    dazUtils.FixNewJointsAiming()
+    #dazUtils.FixNewJointsAiming()
     dazUtils.RecreateHierarchy('root', 'DAZ_')
     dazUtils.AlighnTwistJoints()
 
@@ -175,8 +175,9 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
     oldJoints = mayaUtils.GetHierarchy('root')
 
     dazUtils.DuplicateSkeletonJoints('root', 'DAZ_')
+    
     dazUtils.FixNewJointsOrientation()
-    dazUtils.FixNewJointsAiming()
+    #dazUtils.FixNewJointsAiming()
     dazUtils.RecreateHierarchy('root', 'DAZ_')
     dazUtils.AlighnTwistJoints()
 
