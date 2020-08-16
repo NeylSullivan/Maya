@@ -17,6 +17,14 @@ def ColumnLayout(*args, **kwargs):
         cmds.setParent('..')
 
 
+@contextmanager
+def RawLayout(*args, **kwargs):
+    try:
+        yield cmds.rowLayout(*args, **kwargs)
+    finally:
+        cmds.setParent('..')
+
+
 def __GetOptFullName(pNamespace, pName):
     if pNamespace is None:
         return pName

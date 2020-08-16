@@ -20,7 +20,7 @@ def GetSharedResourcesPath():
     parentDir = os.path.dirname(fileDir)
     return os.path.join(parentDir, 'Resources')
 
-def TryLoadExternalMorphTargets():
+def TryLoadExternalMorphTargets(inRootDirectory):
     with mayaUtils.DebugTimer('TryLoadExternalMorphTargets'):
         mainMesh = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
 
@@ -28,7 +28,7 @@ def TryLoadExternalMorphTargets():
             print 'Error! Can`t find body(Torso) mesh'
             return
 
-        subDirs = [dI for dI in os.listdir(hazMtp.GetIntermediateFullPath()) if os.path.isdir(os.path.join(hazMtp.GetIntermediateFullPath(), dI))]
+        subDirs = [dI for dI in os.listdir(hazMtp.GetIntermediateFullPath(inRootDirectory)) if os.path.isdir(os.path.join(hazMtp.GetIntermediateFullPath(inRootDirectory), dI))]
 
         blendShapeDeformer = None
 
@@ -40,7 +40,7 @@ def TryLoadExternalMorphTargets():
                 print 'SKIPPING directory {}. Reason - unresolved name (should starts with \'{}\')'.format(subDir, PREFIXES)
                 continue
 
-            fullSubdirPath = os.path.join(hazMtp.GetIntermediateFullPath(), subDir)
+            fullSubdirPath = os.path.join(hazMtp.GetIntermediateFullPath(inRootDirectory), subDir)
             morphMeshFile = os.path.join(fullSubdirPath, hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
             morphMeshExist = os.path.exists(morphMeshFile)
             print 'Dir: {} SubD mesh: {} Exist: {}'.format(subDir, morphMeshFile, morphMeshExist)
@@ -63,7 +63,7 @@ def TryLoadExternalMorphTargets():
 
 
 
-def TryLoadExternalBaseMeshBodyMorph():
+def TryLoadExternalBaseMeshBodyMorph(inRootDirectory):
     with mayaUtils.DebugTimer('TryLoadExternalBaseMeshBodyMorph'):
         mainMesh = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
 
@@ -73,7 +73,7 @@ def TryLoadExternalBaseMeshBodyMorph():
         #Mesh unskinned on this stage so we can safely delete all history
         cmds.delete(mainMesh, constructionHistory=True)
 
-        bodyMorphFile = os.path.join(hazMtp.GetIntermediateFullPath(), hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
+        bodyMorphFile = os.path.join(hazMtp.GetIntermediateFullPath(inRootDirectory), hazMtp.PROCESSED_BASE_MESH_NAME + '.obj')
         bodyMorphExist = os.path.exists(bodyMorphFile)
         print 'Body morph file: {} Exist: {}'.format(bodyMorphFile, bodyMorphExist)
         if not bodyMorphExist:
@@ -90,7 +90,7 @@ def TryLoadExternalBaseMeshBodyMorph():
         cmds.delete(mainMesh, constructionHistory=True)
         cmds.delete(morphMesh)
 
-def TryLoadExternalUVs():
+def TryLoadExternalUVs(inRootDirectory):
     with mayaUtils.DebugTimer('TryLoadExternalUVs'):
         mainMesh = mayaUtils.FindMeshByWildcard('Genesis8Female*', checkForMatWithName='Torso')
 
@@ -102,7 +102,7 @@ def TryLoadExternalUVs():
 
         BASE_MESH_WITH_UV_NAME = 'BaseFemale_UV1'
 
-        uvMeshFile = os.path.join(hazMtp.GetIntermediateFullPath(), BASE_MESH_WITH_UV_NAME + '.obj')
+        uvMeshFile = os.path.join(hazMtp.GetIntermediateFullPath(inRootDirectory), BASE_MESH_WITH_UV_NAME + '.obj')
         uvMeshFileExist = os.path.exists(uvMeshFile)
 
         print 'UV mesh file: {} Exist: {}'.format(uvMeshFile, uvMeshFileExist)
@@ -966,6 +966,8 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
                 newParentName = newJointsPrefix + 'neck_01' #not to neckUpper
             elif oldName == 'spine_01':
                 newParentName = newJointsPrefix + 'pelvis' #not to abdomenLower
+
+            #TODO FIX Hand Carpal Bones
 
             #print newParentName
             cmds.parent(newName, newParentName)

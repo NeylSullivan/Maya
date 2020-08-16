@@ -1,3 +1,4 @@
+import os
 import maya.cmds as cmds
 import DAZtoUE4_OptimizeSkeleton as DAZtoUE4
 import libHazardMayaUtils as mayaUtils
@@ -19,6 +20,8 @@ class DAZtoUE4_UI(object):
         self.WINDOW_TITLE = "DAZ to UE4 Tools"
         self.WINDOW_SIZE = (260, 700)
 
+        self.batchProcessingDirOptionName = 'batchProcessingDir'
+
         if cmds.window(self.WINDOW_NAME, exists=True):
             cmds.deleteUI(self.WINDOW_NAME)
         self.WINDOW_NAME = cmds.window(self.WINDOW_NAME, title=self.WINDOW_TITLE, widthHeight=self.WINDOW_SIZE, maximizeButton=False)
@@ -39,11 +42,7 @@ class DAZtoUE4_UI(object):
                     self.chkbxCreateIKConstraints = uiExt.SaveableCheckBox(label='Create IK Constraints', align='left', value=False)
                     self.chkbxCollapseToes = uiExt.SaveableCheckBox(label='Collapse Toes', align='left', value=False)
 
-            with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
-                with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
-                    self.btnTriangulateAllSkinnedMeshes = cmds.button(label="Triangulate all skinned meshes", command=self.TriangulateAllSkinnedMeshes)
-
-
+            
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                     self.btnRetargetAnim = cmds.button(label="Create Skeleton and Retarget Anim", command=self.CreateOptimizedSkeletonOnlyAndRetargetAnim)
@@ -62,10 +61,19 @@ class DAZtoUE4_UI(object):
                         self.chkbxIncludeSpecialJoints = cmds.checkBox(label='Include Special Joints', align='left', value=True)
                         self.chkbxIncludeIKjoints = cmds.checkBox(label='Include IK Joints', align='left', value=True)
 
+        with uiExt.FrameLayout(label='Batch processing', collapsable=True, collapse=False, marginHeight=8, marginWidth=8):
+            with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
+                with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
+                    batchProcessingDir = uiExt.GetOptValue(self.WINDOW_NAME, self.batchProcessingDirOptionName, '')
+                    self.batchPathGrp = cmds.textFieldButtonGrp( label='Path', fileName=batchProcessingDir, buttonLabel='...',columnWidth3= (25, 0, 20), adjustableColumn3=2, editable=False, buttonCommand=self.BrowseBatchDir)
+                    self.btnPreProcessMorphsDir = cmds.button(label="PreProcess Morphs Dir", command=self.PreProcessMorphsDir)
+                    self.btnFullBatchProcessing = cmds.button(label="Full Batch Processing", command=self.DoFullBatchProcessing)
+
         with uiExt.FrameLayout(label='Mesh optimization', collapsable=True, collapse=True, marginHeight=8, marginWidth=8):
             with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                 self.btnOptimizeMeshForBaking = cmds.button(label="Optimize Mesh for Baking", command=self.OptimizeMeshForBaking)
-                self.btnPreProcessMorphsDir = cmds.button(label="PreProcess Morphs Dir", command=self.PreProcessMorphsDir)
+                self.btnTriangulateAllSkinnedMeshes = cmds.button(label="Triangulate all skinned meshes", command=self.TriangulateAllSkinnedMeshes)
+
 
         cmds.showWindow(self.WINDOW_NAME)
         cmds.window(self.WINDOW_NAME, e=True, widthHeight=self.WINDOW_SIZE)
@@ -107,13 +115,35 @@ class DAZtoUE4_UI(object):
         reload(DAZtoUE4)
         DAZtoUE4.OptimizeBodyMeshForBaking()
 
-    def PreProcessMorphsDir(self, _unused):
-        reload (morphTargetProc)
-        morphTargetProc.ProcessSrcDir()
-
     def TriangulateAllSkinnedMeshes(self, _unused):
         reload(dazUtils)
         result = cmds.confirmDialog(title='Confirm', message='Triangulate All Skinned Meshes. Are you sure?',\
              button=['Yes', 'No'], defaultButton='Yes', cancelButton='No', dismissString='No')
         if result == 'Yes':
             dazUtils.TriangulateAllSkinnedMeshes()
+
+    def BrowseBatchDir(self):
+        result = cmds.fileDialog2(fileMode=3, dialogStyle=2, okCaption='Select', caption='Select ROOT directory to batch process character')
+        print result
+        if result:
+            cmds.textFieldButtonGrp(self.batchPathGrp, e=True, fileName=result[0])
+            uiExt.SetOptValue(self.WINDOW_NAME, self.batchProcessingDirOptionName, result[0])
+
+    def PreProcessMorphsDir(self, _unused):
+        reload (morphTargetProc)
+        batchProcessingDir = cmds.textFieldButtonGrp(self.batchPathGrp, q=True, fileName=True)
+        if os.path.exists(batchProcessingDir):
+            morphTargetProc.ProcessSrcDir(batchProcessingDir, inBeepAfterComplete=True)
+        else:
+            cmds.confirmDialog(title='Error', message='Directory \"{}\" not exist!!'.format(batchProcessingDir), button=['Ok'], defaultButton='Ok')
+        
+
+    def DoFullBatchProcessing(self, _unused):
+        reload (morphTargetProc)
+        batchProcessingDir = cmds.textFieldButtonGrp(self.batchPathGrp, q=True, fileName=True)
+        print batchProcessingDir
+        if os.path.exists(batchProcessingDir):
+            morphTargetProc.PerformFullBatchProcessing(batchProcessingDir)
+        else:
+            cmds.confirmDialog(title='Error', message='Directory \"{}\" not exist!!'.format(batchProcessingDir), button=['Ok'], defaultButton='Ok')
+        pass

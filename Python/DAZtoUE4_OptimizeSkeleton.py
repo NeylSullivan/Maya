@@ -62,7 +62,7 @@ def OptimizeBodyMeshForBaking():
 #
 #   MAIN
 #
-def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExternalMorphs=False, pLoadExternalUVs=False, pCreateIKConstraints=False):
+def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExternalMorphs=False, pLoadExternalUVs=False, pCreateIKConstraints=False, inRootDirectory=None, inBeepAfterComplete=True):
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -94,11 +94,11 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     dazUtils.RenameNewSkeleton()
 
     if pLoadExternalBaseMesh: # Do it when mesh unskinned
-        dazUtils.TryLoadExternalBaseMeshBodyMorph()
+        dazUtils.TryLoadExternalBaseMeshBodyMorph(inRootDirectory)
 
     #load external secondary uv here
     if pLoadExternalUVs:
-        dazUtils.TryLoadExternalUVs()
+        dazUtils.TryLoadExternalUVs(inRootDirectory)
 
     mayaUtils.ImportSkinning(skinData, pDeleteFilesAfterImport=True)          # import skinning
 
@@ -116,7 +116,7 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
 
 
     if pLoadExternalMorphs:
-        dazUtils.TryLoadExternalMorphTargets()
+        dazUtils.TryLoadExternalMorphTargets(inRootDirectory)
 
     dazUtils.OptimizeBodyMaterials() # Check this, try to extract blendshape before baking history, then readd it. Done 26102019
 
@@ -137,12 +137,13 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     dazUtils.ReplaceEyesWithExternalMeshes()
 
     print 'FINISHED skeleton and mesh optimization: time taken %.02f seconds' % (time.clock()-start)
-    mayaUtils.NotifyWithSound()
+    if inBeepAfterComplete:
+        mayaUtils.NotifyWithSound()
 
 #
 #   MAIN
 #
-def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
+def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True,inBeepAfterComplete=True):
     print 'Starting skeleton optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -239,4 +240,5 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True):
     cmds.delete()
 
     print 'FINISHED animation retargeting: time taken %.02f seconds' % (time.clock()-start)
-    mayaUtils.NotifyWithSound()
+    if inBeepAfterComplete:
+        mayaUtils.NotifyWithSound()
