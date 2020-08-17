@@ -62,7 +62,7 @@ def OptimizeBodyMeshForBaking():
 #
 #   MAIN
 #
-def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExternalMorphs=False, pLoadExternalUVs=False, pCreateIKConstraints=False, inRootDirectory=None, inBeepAfterComplete=True):
+def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExternalMorphs=False, pLoadExternalUVs=False, pCreateIKConstraints=False, inBeepAfterComplete=True):
     print 'Starting skeleton and mesh optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -94,11 +94,11 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     dazUtils.RenameNewSkeleton()
 
     if pLoadExternalBaseMesh: # Do it when mesh unskinned
-        dazUtils.TryLoadExternalBaseMeshBodyMorph(inRootDirectory)
+        dazUtils.TryLoadExternalBaseMeshBodyMorph()
 
     #load external secondary uv here
     if pLoadExternalUVs:
-        dazUtils.TryLoadExternalUVs(inRootDirectory)
+        dazUtils.TryLoadExternalUVs()
 
     mayaUtils.ImportSkinning(skinData, pDeleteFilesAfterImport=True)          # import skinning
 
@@ -107,7 +107,6 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     dazUtils.AddBreastJoints() ################ should nipples need to be skinned or it just points for ue4 sockets?
 
     dazUtils.AddEndJoints()
-    dazUtils.AddCameraJoint()
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
     dazUtils.MakeBendCorrectiveJoints()
     dazUtils.CreateIkJoints(pCreateIKConstraints)
@@ -116,7 +115,7 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
 
 
     if pLoadExternalMorphs:
-        dazUtils.TryLoadExternalMorphTargets(inRootDirectory)
+        dazUtils.TryLoadExternalMorphTargets()
 
     dazUtils.OptimizeBodyMaterials() # Check this, try to extract blendshape before baking history, then readd it. Done 26102019
 
@@ -143,7 +142,7 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
 #
 #   MAIN
 #
-def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True,inBeepAfterComplete=True):
+def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True, inBeepAfterComplete=True):
     print 'Starting skeleton optimization'
     start = time.clock()
     cmds.currentTime(0, edit=True)#set skeleton to 'reference' position
@@ -174,7 +173,7 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True,inBeepAfterCom
     oldJoints = mayaUtils.GetHierarchy('root')
 
     dazUtils.DuplicateSkeletonJoints('root', 'DAZ_')
-    
+
     dazUtils.FixNewJointsOrientation()
     dazUtils.RecreateHierarchy('root', 'DAZ_')
     dazUtils.JointOrientToRotation('DAZ_root')
@@ -203,7 +202,6 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True,inBeepAfterCom
         print '\tCreating parentConstraint from {0} to {1}'.format(oldJoint, j)
         cmds.parentConstraint(oldJoint, j, maintainOffset=True)
 
-    dazUtils.AddCameraJoint()
     dazUtils.CreateIkJoints() #create AFTER constraining new skeleton to old
 
     # No need to bake IK joints, they are auto baked during exporting to fbx

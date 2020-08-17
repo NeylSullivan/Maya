@@ -4,23 +4,23 @@ import DAZtoUE4_OptimizeSkeleton as DAZtoUE4
 import libHazardMayaUtils as mayaUtils
 import libHazardDazUtils as dazUtils
 import libHazardSkeletonSelectionUtils as skelUtils
-import libHazardMorphTargetProcessing as morphTargetProc
+import libHazardBatchProcessing as batchProc
 import libHazardMayaUIExtension as uiExt
+import libHazardEnvironment as env
 
 reload(DAZtoUE4)
 reload(mayaUtils)
 reload(dazUtils)
 reload(skelUtils)
 reload(uiExt)
+reload(env)
 
 class DAZtoUE4_UI(object):
     def __init__(self):
 
-        self.WINDOW_NAME = 'hazardDAZtoUE4'
+        self.WINDOW_NAME = env.DAZ_TO_UE4_NAMESPACE
         self.WINDOW_TITLE = "DAZ to UE4 Tools"
         self.WINDOW_SIZE = (260, 700)
-
-        self.batchProcessingDirOptionName = 'batchProcessingDir'
 
         if cmds.window(self.WINDOW_NAME, exists=True):
             cmds.deleteUI(self.WINDOW_NAME)
@@ -42,7 +42,7 @@ class DAZtoUE4_UI(object):
                     self.chkbxCreateIKConstraints = uiExt.SaveableCheckBox(label='Create IK Constraints', align='left', value=False)
                     self.chkbxCollapseToes = uiExt.SaveableCheckBox(label='Collapse Toes', align='left', value=False)
 
-            
+
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
                     self.btnRetargetAnim = cmds.button(label="Create Skeleton and Retarget Anim", command=self.CreateOptimizedSkeletonOnlyAndRetargetAnim)
@@ -64,8 +64,10 @@ class DAZtoUE4_UI(object):
         with uiExt.FrameLayout(label='Batch processing', collapsable=True, collapse=False, marginHeight=8, marginWidth=8):
             with uiExt.FrameLayout(labelVisible=False, borderVisible=True, marginHeight=4, marginWidth=4):
                 with uiExt.ColumnLayout(rowSpacing=5, adjustableColumn=True):
-                    batchProcessingDir = uiExt.GetOptValue(self.WINDOW_NAME, self.batchProcessingDirOptionName, '')
-                    self.batchPathGrp = cmds.textFieldButtonGrp( label='Path', fileName=batchProcessingDir, buttonLabel='...',columnWidth3= (25, 0, 20), adjustableColumn3=2, editable=False, buttonCommand=self.BrowseBatchDir)
+                    batchProcessingDir = env.GetRootDir(pCanBeEmpty=True)
+                    self.batchPathGrp = cmds.textFieldButtonGrp(label='Path', fileName=batchProcessingDir, buttonLabel='...',\
+                         columnWidth3=(25, 0, 20), adjustableColumn3=2, editable=False, buttonCommand=self.BrowseBatchDir)
+                    self.chkbxForceFullRebuild = uiExt.SaveableCheckBox(label='Force Full Rebuild', align='left', value=False)
                     self.btnPreProcessMorphsDir = cmds.button(label="PreProcess Morphs Dir", command=self.PreProcessMorphsDir)
                     self.btnFullBatchProcessing = cmds.button(label="Full Batch Processing", command=self.DoFullBatchProcessing)
 
@@ -127,23 +129,24 @@ class DAZtoUE4_UI(object):
         print result
         if result:
             cmds.textFieldButtonGrp(self.batchPathGrp, e=True, fileName=result[0])
-            uiExt.SetOptValue(self.WINDOW_NAME, self.batchProcessingDirOptionName, result[0])
+            uiExt.SetOptValue(env.DAZ_TO_UE4_NAMESPACE, env.BATCH_PROCESSING_DIR_OPTION_NAME, result[0])
 
     def PreProcessMorphsDir(self, _unused):
-        reload (morphTargetProc)
-        batchProcessingDir = cmds.textFieldButtonGrp(self.batchPathGrp, q=True, fileName=True)
+        reload(batchProc)
+        batchProcessingDir = env.GetRootDir(pCanBeEmpty=True)
         if os.path.exists(batchProcessingDir):
-            morphTargetProc.ProcessSrcDir(batchProcessingDir, inBeepAfterComplete=True)
+            ForceFullRebuild = cmds.checkBox(self.chkbxForceFullRebuild, query=True, value=True)
+            batchProc.PreprocessMorphTargets(pForceFullRebuild=ForceFullRebuild, inBeepAfterComplete=True)
         else:
             cmds.confirmDialog(title='Error', message='Directory \"{}\" not exist!!'.format(batchProcessingDir), button=['Ok'], defaultButton='Ok')
-        
+
 
     def DoFullBatchProcessing(self, _unused):
-        reload (morphTargetProc)
-        batchProcessingDir = cmds.textFieldButtonGrp(self.batchPathGrp, q=True, fileName=True)
+        reload(batchProc)
+        batchProcessingDir = env.GetRootDir(pCanBeEmpty=True)
         print batchProcessingDir
         if os.path.exists(batchProcessingDir):
-            morphTargetProc.PerformFullBatchProcessing(batchProcessingDir)
+            ForceFullRebuild = cmds.checkBox(self.chkbxForceFullRebuild, query=True, value=True)
+            batchProc.PerformFullBatchProcessing(pForceFullRebuild=ForceFullRebuild)
         else:
             cmds.confirmDialog(title='Error', message='Directory \"{}\" not exist!!'.format(batchProcessingDir), button=['Ok'], defaultButton='Ok')
-        pass
