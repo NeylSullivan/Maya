@@ -13,8 +13,9 @@ reload(env)
 reload(fileUtils)
 
 # konstants
-k_LEFT_NIPPLE_UV = [0.7961298823356628, 0.8489649891853333]
-k_RIGHT_NIPPLE_UV = [0.7028849720954895, 0.8489649891853333]
+#Coordinates for default Genesis 8 Female UV
+k_LEFT_NIPPLE_UV = [1.5732300281524658, 0.5203400254249573]
+k_RIGHT_NIPPLE_UV = [1.4267699718475342, 0.5203400254249573]
 k_CARPAL_JOINTS_TO_REMOVE = ['lCarpal1', 'lCarpal2', 'lCarpal3', 'lCarpal4', 'rCarpal1', 'rCarpal2', 'rCarpal3', 'rCarpal4']
 
 def GetSharedResourcesPath():
@@ -198,8 +199,6 @@ def DestroyUnusedJoints(pbDestroyToes):
         mayaUtils.TransferJointWeights('neckUpper', 'head', 0.33)#transfer 33 persent to child
         mayaUtils.DestroyMiddleJoint('neckUpper')
 
-        
-
         for jointToRemove in k_CARPAL_JOINTS_TO_REMOVE:
             mayaUtils.DestroyMiddleJoint(jointToRemove)
 
@@ -314,26 +313,6 @@ def RemoveObjectsByWildcard(objectsList, objectType, rootOnly=True):
                 print '\t\tDeleting object{0}'.format(r)
                 cmds.delete(r)
 
-def AddBreastJoints():
-    with mayaUtils.DebugTimer('AddBreastJoints'):
-        cmds.select(clear=True)
-        srcJointslist = ['breast_l', 'breast_r']
-        for j in srcJointslist:
-            newJointName = j[:-2] + '_jiggle_' + j[-1]
-            cmds.select(j)
-            cmds.joint(name=newJointName)
-            cmds.xform(relative=True, translation=[3, 0, 0])
-
-        shape = mayaUtils.FindShapeByMat('Torso')
-
-        AddNippleJointAndRealighnBreast('nipple_l', 'breast_jiggle_l', k_LEFT_NIPPLE_UV, shape)
-        AddNippleJointAndRealighnBreast('nipple_r', 'breast_jiggle_r', k_RIGHT_NIPPLE_UV, shape)
-
-        #transfer weights to new jiggle joints
-        for j in srcJointslist:
-            newJointName = j[:-2] + '_jiggle_' + j[-1]
-            mayaUtils.TransferJointWeights(j, newJointName)
-
 def ReplaceEyesWithExternalMeshes():
     oldEyes = mayaUtils.FindMeshByWildcard('FemaleEyes')
     jointLeft = cmds.ls('eye_l', type='joint')[0]
@@ -391,24 +370,39 @@ def ReplaceEyesWithExternalMeshes():
     cmds.connectAttr(sha+'.outColor', sg+'.surfaceShader', f=True)
     cmds.sets('FemaleEyes', e=True, forceElement=sg)
 
+def AddNippleJointsAndAimBreast():
+    with mayaUtils.DebugTimer('AddNippleJointsAndAimBreast'):
+        cmds.select(clear=True)
 
+        baseMeshFile = os.path.join(env.GetIntermediateFullPath(), env.PROCESSED_BASE_MESH_NAME + '.obj')
+        baseMeshExist = os.path.exists(baseMeshFile)
+        print 'Base Mesh file: {} Exist: {}'.format(baseMeshFile, baseMeshExist)
+        if not baseMeshExist:
+            print 'ABORTED: no Base Mesh file found'
+            return
 
-def AddNippleJointAndRealighnBreast(newJointName, parentName, uvPos, referenceShape):
-    cmds.select(clear=True)
-    cmds.select(parentName)
-    newJointName = cmds.joint(name=newJointName) #not final nipple joint!
+        baseMesh = cmds.file(baseMeshFile, i=True, returnNewNodes=True)[0]
+        baseMesh = cmds.rename(baseMesh, 'BaseMeshForNipplesCoordinatesLookUp')
+        leftNipplePos = mayaUtils.UvCoordToWorld(k_LEFT_NIPPLE_UV[0], k_LEFT_NIPPLE_UV[1], baseMesh)
+        rightNipplePos = mayaUtils.UvCoordToWorld(k_RIGHT_NIPPLE_UV[0], k_RIGHT_NIPPLE_UV[1], baseMesh)
+        cmds.delete(baseMesh)
 
-    f = mayaUtils.UvCoordToWorld(uvPos[0], uvPos[1], referenceShape)
-    print 'AddNippleJointAndRealighnBreast(): {} position is {}'.format(newJointName, f)
-    cmds.move(f[0], f[1], f[2], newJointName, absolute=True)
-    cmds.parent(newJointName, world=True)
-    constraint = cmds.aimConstraint(newJointName, parentName, worldUpType='vector', worldUpVector=[0, 1, 0])
-    cmds.delete(constraint)
-    cmds.delete(newJointName) #delete temp nipple joint
-
-    cmds.select(parentName) #again
-    newJointName = cmds.joint(name=newJointName) #create new joint, properly aligned with parent
-    cmds.move(f[0], f[1], f[2], newJointName, absolute=True)
+        for side in ['l', 'r']:
+            breastJoint = 'breast_' + side
+            nippleJoint = 'nipple_' + side
+            nipplePos = leftNipplePos if side == 'l' else rightNipplePos
+            cmds.select(clear=True)
+            nippleJoint = cmds.joint(name=nippleJoint)#create unparented
+            cmds.xform(nippleJoint, absolute=True, translation=nipplePos)#and set position in worldspace
+            cmds.select(clear=True)
+            print nippleJoint
+            if side == 'l':
+                constraint = cmds.aimConstraint(nippleJoint, breastJoint, worldUpType='scene', aimVector=[0, -1, 0], upVector=[0, 0, 1])
+            else:
+                constraint = cmds.aimConstraint(nippleJoint, breastJoint, worldUpType='scene', aimVector=[0, 1, 0], upVector=[0, 0, -1])
+            cmds.delete(constraint)
+            cmds.parent(nippleJoint, breastJoint)
+            cmds.joint(nippleJoint, e=True, orientation=[0, 0, 0])#reset joint orietnation
 
 def AddEndJoints():
     cmds.select(clear=True)
@@ -422,8 +416,7 @@ def AddEndJoints():
 
 
     for j in srcJoints:
-        #newJointName = j + '_end'
-        newJointName = j[:-5] + '_end_' + j[-4:]
+        newJointName = 'end_' + j
         relativeTranslation = cmds.xform(j, q=True, relative=True, translation=True)
         cmds.select(j)
         cmds.joint(name=newJointName)
@@ -762,8 +755,8 @@ def FixNewJointsOrientation():
         mayaUtils.RotateJoint("DAZ_spine_03", -90, 0, 90)
         AimJointForUnreal('DAZ_spine_03', 'DAZ_neck_01')
 
-        mayaUtils.RotateJoint("DAZ_breast_l", 0, -90, 0)
-        mayaUtils.RotateJoint("DAZ_breast_r", 0, -90, 0)
+        mayaUtils.RotateJoint("DAZ_breast_l", -90, 0, 0)
+        mayaUtils.RotateJoint("DAZ_breast_r", 90, 0, 0)
 
         mayaUtils.RotateJoint("DAZ_neck_01", -90, 0, 90)
         AimJointForUnreal('DAZ_neck_01', 'DAZ_head')

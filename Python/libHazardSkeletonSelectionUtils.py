@@ -97,24 +97,16 @@ def GetMeshesJoints(meshes):
     allJoints = list(set(allJoints))
 
     UpdateListWithAllThemParents(allJoints)
-    RemoveJointsFromListByWildCard(allJoints, '*_end_*') # END joints not skinned but to be sure... they never should be exported to ue4
+    RemoveJointsFromListByWildCard(allJoints, 'end_*') # END joints not skinned but to be sure... they never should be exported to ue4
 
     return allJoints
 
 def GetSpecialJoints():
     specialJoints = []
 
-    sockets = cmds.ls('camera', type='joint')
-    if sockets:
-        specialJoints.extend(sockets)
-
     nipples = cmds.ls('nipple_?', type='joint')
     if nipples:
         specialJoints.extend(nipples)
-
-    jiggles = cmds.ls('*_jiggle_*', type='joint')
-    if jiggles:
-        specialJoints.extend(jiggles)
 
     eyes = cmds.ls('eye_?', type='joint')
     if eyes:

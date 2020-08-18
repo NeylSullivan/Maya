@@ -260,14 +260,15 @@ def PerformFullBatchProcessing(pForceFullRebuild=True):
         if eyelashes:
             meshesToExport.append(eyelashes)
 
+        cmds.select(clear=True)
         if meshesToExport:
             cmds.select(meshesToExport)
             skelUtils.SelectJointsForSelectedMeshes(bKeepSelection=True, bIncludeSpecialJoints=True, bIncludeIKJoints=True)
             fileUtils.ExportSelectionFBX(pDir=env.GetOutputFullPath(), pFileNameWithoutExtension='SK_'+baseMeshName, pBakeAnimation=True)
-            cmds.select(clear=True)
         else:
             print 'ERROR: Nothing to export as {}'.format(baseMeshName)
 
+        cmds.select(clear=True)
 
         #save maya file for later use
         saveFilePath = os.path.join(env.GetIntermediateFullPath(), 'BaseProcessed.mb')

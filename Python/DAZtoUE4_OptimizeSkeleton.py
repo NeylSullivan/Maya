@@ -100,11 +100,11 @@ def OptimizeSkeleton(pbCollapseToes=False, pLoadExternalBaseMesh=False, pLoadExt
     if pLoadExternalUVs:
         dazUtils.TryLoadExternalUVs()
 
+    dazUtils.AddNippleJointsAndAimBreast()
+
     mayaUtils.ImportSkinning(skinData, pDeleteFilesAfterImport=True)          # import skinning
 
     cmds.select(clear=True)
-
-    dazUtils.AddBreastJoints() ################ should nipples need to be skinned or it just points for ue4 sockets?
 
     dazUtils.AddEndJoints()
     mayaUtils.FixMaxInfluencesForAllSkinClusters(4)
@@ -192,6 +192,8 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True, inBeepAfterCo
 
     dazUtils.RenameNewSkeleton() #remove DAZ_ prefix
 
+    dazUtils.AddNippleJointsAndAimBreast()
+
     cmds.select(clear=True)
     #create constraint from old skeleton to new
     print 'Creating constraints'
@@ -200,7 +202,9 @@ def CreateOptimizedSkeletonOnlyAndRetargetAnim(bFilterCurves=True, inBeepAfterCo
     for j in newJoints:
         oldJoint = 'OLD_' + j
         print '\tCreating parentConstraint from {0} to {1}'.format(oldJoint, j)
-        cmds.parentConstraint(oldJoint, j, maintainOffset=True)
+        #not all joints can exist on old skeleton (e.g. nipples)
+        if cmds.objExists(oldJoint) and cmds.nodeType(oldJoint) == 'joint':
+            cmds.parentConstraint(oldJoint, j, maintainOffset=True)
 
     dazUtils.CreateIkJoints() #create AFTER constraining new skeleton to old
 

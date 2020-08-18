@@ -74,6 +74,7 @@ def ExportSelectionFBX(pDir, pFileNameWithoutExtension, pBakeAnimation):
 
     mel.eval('FBXExportQuaternion -v "resample"')
     mel.eval("FBXExportInputConnections -v false")# Connections
+    mel.eval("FBXProperty Export|IncludeGrp|InputConnectionsGrp|IncludeChildren -v false")#should not include children otherwise 'end_' joint exported to ue4
     mel.eval("FBXExportCameras -v false")# Cameras
     mel.eval("FBXExportLights -v false")# Lights
     mel.eval("FBXExportEmbeddedTextures -v false")# Embed Media
