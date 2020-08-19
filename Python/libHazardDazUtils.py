@@ -193,8 +193,8 @@ def DestroyUnusedJoints(pbDestroyToes):
         #to match EPIC skeleton
         mayaUtils.DestroyMiddleJoint('pelvis')
         #spine1
-        mayaUtils.TransferJointWeights('abdomenLower', 'abdomenUpper', 0.33)#transfer 33 persent to child
-        mayaUtils.DestroyMiddleJoint('abdomenLower') # and 67 percent to parent then delete
+        #mayaUtils.TransferJointWeights('abdomenLower', 'abdomenUpper', 0.33)#transfer 33 persent to child
+        mayaUtils.DestroyMiddleJoint('chestUpper') # and 67 percent to parent then delete
         #Neck
         mayaUtils.TransferJointWeights('neckUpper', 'head', 0.33)#transfer 33 persent to child
         mayaUtils.DestroyMiddleJoint('neckUpper')
@@ -429,10 +429,10 @@ def AddEndJoints():
 def GetRenamingDict():
     dictionary = {
         'hip': 'pelvis',
-        #'abdomenLower': 'Spine_1',
-        'abdomenUpper': 'spine_01',
-        'chestLower': 'spine_02',
-        'chestUpper': 'spine_03',
+        'abdomenLower': 'spine_01',
+        'abdomenUpper': 'spine_02',
+        'chestLower': 'spine_03',
+        #'chestUpper': 'spine_03',
 
         'neckLower': 'neck_01',
         #'neckUpper': 'Neck_2',
@@ -739,12 +739,25 @@ def AimFootJoint(footJoint, toeTarget, inAimVector, inUpVector):
     cmds.delete(constraint)
     cmds.delete(locator)
 
+def CopyJointPosition(pJoint, pSrc, pAxises='x'):
+    srcPos = cmds.xform(pSrc, q=True, translation=True, worldSpace=True)
+    jointPos = cmds.xform(pJoint, q=True, translation=True, worldSpace=True)
+
+    for axis in pAxises:
+        indexToCopy = 'xyz'.index(axis)
+        jointPos[indexToCopy] = srcPos[indexToCopy]
+    cmds.xform(pJoint, translation=jointPos, worldSpace=True)
+
+
 def FixNewJointsOrientation():
     with mayaUtils.DebugTimer('FixNewJointsOrientation'):
         # Root
         mayaUtils.RotateJoint("DAZ_root", 0, 0, 0)
 
         # Spine
+        CopyJointPosition('DAZ_pelvis', 'DAZ_thigh_l', 'yz')
+
+
         mayaUtils.RotateJoint("DAZ_pelvis", -90, 0, 90)
         mayaUtils.RotateJoint("DAZ_spine_01", -90, 0, 90)
         AimJointForUnreal('DAZ_spine_01', 'DAZ_spine_02')
@@ -784,7 +797,10 @@ def FixNewJointsOrientation():
 
         # Arm Left
 
+        #TODO TEST
+        CopyJointPosition('DAZ_clavicle_l', 'DAZ_spine_03', 'z')
         mayaUtils.RotateJoint("DAZ_clavicle_l", -90)
+
         AimJointForUnreal('DAZ_clavicle_l', 'DAZ_upperarm_l')
         mayaUtils.RotateJoint("DAZ_upperarm_l", -90)
         mayaUtils.RotateJoint("DAZ_upperarm_twist_01_l", -90)
@@ -817,6 +833,8 @@ def FixNewJointsOrientation():
         mayaUtils.RotateJoint('DAZ_pinky_03_l', 180)
 
         # Arm Right
+        #TODO TEST
+        CopyJointPosition('DAZ_clavicle_r', 'DAZ_spine_03', 'z')
 
         mayaUtils.RotateJoint("DAZ_clavicle_r", 90)
         AimJointForUnreal('DAZ_clavicle_r', 'DAZ_upperarm_r', inAimVector=[-1.0, 0.0, 0.0])
@@ -920,8 +938,8 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
                 newParentName = newJointsPrefix + 'foot_r' #not to rMetatarsals
             elif oldName == 'head':
                 newParentName = newJointsPrefix + 'neck_01' #not to neckUpper
-            elif oldName == 'spine_01':
-                newParentName = newJointsPrefix + 'pelvis' #not to abdomenLower
+            elif oldName == 'clavicle_l' or oldName == 'clavicle_r' or oldName == 'neck_01':
+                newParentName = newJointsPrefix + 'spine_03' #not to chestupper
 
             #FIX Hand Carpal Bones (for animation retargetting mode)
             if oldParentName in k_CARPAL_JOINTS_TO_REMOVE:
@@ -946,7 +964,7 @@ def RecreateHierarchy(oldSkeletonRoot, newJointsPrefix):
                     cmds.parent(child, parent[0])
 
         #Remove unused bones if exists (for animation retargeting mode)
-        unusedList = ['lMetatarsals', 'rMetatarsals', 'abdomenLower', 'neckUpper', 'original_pelvis_to_delete']
+        unusedList = ['lMetatarsals', 'rMetatarsals', 'chestUpper', 'neckUpper', 'original_pelvis_to_delete']
         unusedList.extend(k_CARPAL_JOINTS_TO_REMOVE)
         for j in unusedList:
             print j
